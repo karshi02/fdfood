@@ -358,3 +358,11 @@ main > section > .row label, main > section > h2, main > section > p.muted, .leg
   .scard .sbg { display: none; }
 }
 @media (max-width: 380px) { .tables { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* staff have no bell: drop the divider with it */
+#bellBtn.hidden + .sep { display: none; }
+/* money like ฿12,345.00 must fit the half-width card on phones */
+@media (max-width: 480px) {
+  .scard { gap: 8px; padding: 12px 10px; }
+  .scard .sico { width: 36px; height: 36px; border-width: 1.5px; } .scard .sico .ic { width: 18px; height: 18px; }
+  .scard b { font-size: clamp(15px, 5vw, 24px); }
+}
