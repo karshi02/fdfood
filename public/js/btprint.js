@@ -41,7 +41,7 @@ const BT = (() => {
     return [0x22, 0x21, cmd, 0x00, payload.length & 0xff, (payload.length >> 8) & 0xff, ...payload, c, last === undefined ? 0xff : last];
   }
 
-  const KEY = { name: 'fd.printer.name', mode: 'fd.printer.mode', paper: 'fd.printer.paper', kitchen: 'fd.printer.kitchen' };
+  const KEY = { name: 'fd.printer.name', mode: 'fd.printer.mode', paper: 'fd.printer.paper', kitchen: 'fd.printer.kitchen', via: 'fd.printer.via' };
   const load = (k, ok, dflt) => { try { const v = localStorage.getItem(k); return ok.includes(v) ? v : dflt; } catch { return dflt; } };
   const save = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* private mode: works for this page only */ } };
 
@@ -52,6 +52,7 @@ const BT = (() => {
   ];
 
   let state = {
+    via: load(KEY.via, ['bt', 'rawbt'], 'bt'), // bt = Web Bluetooth here · rawbt = hand the job to the RawBT Android app
     status: 'none', // none | connecting | ready | printing
     mode: load(KEY.mode, ['standard', 'small', 'peripage'], 'standard'),
     paper: load(KEY.paper, ['58', '80'], '58'),
@@ -271,7 +272,21 @@ const BT = (() => {
     return out;
   }
 
+  /* RawBT (Android app, ru.a402d.rawbtprinter) drives printers Chrome can't reach: the built-in printer of
+   * Android POS terminals (Ocha / Sunmi / iMin), classic-Bluetooth and USB printers. The page hands it the same
+   * ESC/POS bytes through an intent URL; if the app isn't installed Chrome opens its Play Store page instead.
+   * RawBT reports nothing back, so success here only means the job was handed over. */
+  const RAWBT_PLAY = 'https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter';
+  function sendRawbt(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    location.href = `intent:base64,${btoa(bin)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${encodeURIComponent(RAWBT_PLAY)};end;`;
+    set({ status: 'ready', msg: 'ส่งไปแอป RawBT แล้ว', bad: false });
+    return true;
+  }
+
   async function printBytes(input, prompt) {
+    if (state.via === 'rawbt') return sendRawbt(input);
     try {
       const out = await ready(prompt !== false);
       set({ status: 'printing', msg: 'กำลังส่งไปเครื่องพิมพ์…', bad: false });
@@ -517,15 +532,17 @@ const BT = (() => {
   return {
     MODES,
     supported: () => !!api(),
+    rawbtPlay: RAWBT_PLAY,
     state: () => state,
     onChange(fn) { watchers.add(fn); fn(state); },
     // a printer was paired on this device: bills go to Bluetooth instead of the print dialog
-    active: () => !!api() && !!state.name,
+    active: () => state.via === 'rawbt' || (!!api() && !!state.name),
     useForKitchen: () => state.kitchen,
     connect, resume, forget,
     setMode(mode) { save(KEY.mode, mode); set({ mode, msg: `วิธีส่ง: ${MODES.find(x => x.key === mode).label} — กดทดสอบพิมพ์ดู`, bad: false }); },
     setPaper(paper) { save(KEY.paper, paper); set({ paper, msg: '', bad: false }); },
     setKitchen(on) { save(KEY.kitchen, on ? '1' : '0'); set({ kitchen: on }); },
+    setVia(via) { save(KEY.via, via); set({ via, msg: via === 'rawbt' ? 'ใช้แอป RawBT — กดทดสอบพิมพ์ได้เลย' : '', bad: false }); },
     test: () => printBytes(raster(drawTest()), true),
     printBill: async (b, isPreview) => printBytes(raster(await drawBill(b, isPreview)), false),
     printKitchen: (name, items) => printBytes(raster(drawKitchen(name, items)), false),
@@ -548,8 +565,24 @@ const BT = (() => {
   $('prTest').onclick = () => BT.test();
   $('prForget').onclick = () => { if (confirm('ลืมเครื่องพิมพ์นี้? บิลจะกลับไปพิมพ์ผ่านเบราว์เซอร์')) BT.forget(); };
   $('prKitchen').onchange = e => BT.setKitchen(e.target.checked);
+  $('prVia').querySelectorAll('[data-via]').forEach(b => b.onclick = () => BT.setVia(b.dataset.via));
+  $('prRawbtLink').href = BT.rawbtPlay;
   const LABEL = { none: 'ยังไม่ได้ต่อ', connecting: 'กำลังต่อ…', ready: 'พร้อมพิมพ์', printing: 'กำลังพิมพ์…' };
   BT.onChange(s => {
+    const raw = s.via === 'rawbt';
+    $('prVia').querySelectorAll('[data-via]').forEach(b => b.classList.toggle('on', b.dataset.via === s.via));
+    panel.querySelectorAll('.bt-only').forEach(el => el.classList.toggle('hidden', raw));
+    panel.querySelectorAll('.rawbt-only').forEach(el => el.classList.toggle('hidden', !raw));
+    if (raw) {
+      $('prStatus').textContent = 'แอป RawBT · พร้อมพิมพ์';
+      $('prStatus').className = 'pr-status on';
+      $('printerDot').className = 'pr-dot on';
+      $('prMsg').textContent = s.msg; $('prMsg').style.color = '';
+      $('prTest').disabled = false;
+      $('prKitchen').checked = s.kitchen;
+      $('prPaper').querySelectorAll('[data-paper]').forEach(b => { b.classList.toggle('on', b.dataset.paper === s.paper); b.onclick = () => BT.setPaper(b.dataset.paper); });
+      return;
+    }
     const on = s.status === 'ready' || s.status === 'printing';
     $('prStatus').textContent = s.name ? `${s.name} · ${LABEL[s.status]}` : LABEL[s.status];
     $('prStatus').className = `pr-status ${on ? 'on' : s.status === 'connecting' ? 'wait' : ''}`;
@@ -563,8 +596,10 @@ const BT = (() => {
     $('prPaper').querySelectorAll('[data-paper]').forEach(b => { b.classList.toggle('on', b.dataset.paper === s.paper); b.onclick = () => BT.setPaper(b.dataset.paper); });
   });
   if (!BT.supported()) {
-    $('prUnsupported').classList.remove('hidden');
-    ['prConnect', 'prAny', 'prTest'].forEach(id => { $(id).disabled = true; });
+    $('prUnsupported').classList.add('bt-only');
+    $('prUnsupported').classList.toggle('hidden', BT.state().via === 'rawbt');
+    ['prConnect', 'prAny'].forEach(id => { $(id).disabled = true; });
+    if (BT.state().via !== 'rawbt') $('prTest').disabled = true;
   }
   BT.resume();
 })();

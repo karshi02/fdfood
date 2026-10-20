@@ -45,7 +45,7 @@
         <button class="round" id="acctBtn" type="button" title="บัญชีผู้ใช้"><i data-ic="gear"></i></button>
         <div class="acct hidden" id="acctMenu">
           <div class="acct-name" id="meName"></div>
-          <button id="printerBtn" type="button">เครื่องพิมพ์บลูทูธ <span class="pr-dot" id="printerDot"></span></button>
+          <button id="printerBtn" type="button">เครื่องพิมพ์ใบเสร็จ <span class="pr-dot" id="printerDot"></span></button>
           <button id="chPass" type="button">เปลี่ยนรหัสผ่าน</button>
           <button id="logout" type="button" class="danger">ออกจากระบบ</button>
         </div>
@@ -236,23 +236,27 @@
 <div class="modal hidden" id="printerPanel">
   <div class="sheet pr-sheet">
     <div class="sheet-head">
-      <h2>เครื่องพิมพ์บลูทูธ</h2>
+      <h2>เครื่องพิมพ์ใบเสร็จ</h2>
       <button class="btn ghost sm" id="prClose" type="button">ปิด ✕</button>
     </div>
     <div class="card">
+      <label>ต่อเครื่องพิมพ์ด้วย</label>
+      <div class="cats" id="prVia"><button type="button" class="chip" data-via="bt">บลูทูธ (Chrome)</button><button type="button" class="chip" data-via="rawbt">แอป RawBT · Ocha / Sunmi / แอนดรอยด์</button></div>
       <p class="pr-status" id="prStatus"></p>
       <p class="muted hidden" id="prUnsupported" style="color:var(--danger)">เบราว์เซอร์นี้ต่อบลูทูธไม่ได้ — ใช้ Chrome บนแอนดรอยด์หรือคอมพิวเตอร์ เปิดผ่าน https · iPhone/iPad ใช้การพิมพ์ผ่านเบราว์เซอร์แทน</p>
+      <p class="muted rawbt-only hidden" style="margin:8px 0 0">ใช้กับเครื่องพิมพ์ในตัวของเครื่อง POS แอนดรอยด์ (เช่น Ocha / Sunmi / iMin) และเครื่องพิมพ์ที่ Chrome ต่อตรงไม่ได้ ·
+        1) ติดตั้ง <a id="prRawbtLink" target="_blank" rel="noopener">RawBT จาก Play Store</a> บนเครื่องนี้ 2) ในแอปเลือกเครื่องพิมพ์ (เครื่องในตัว: "Built-in / Inner printer") 3) กลับมากดทดสอบพิมพ์</p>
       <div class="actions">
-        <button class="btn brand" id="prConnect" type="button">เชื่อมต่อเครื่องพิมพ์</button>
+        <button class="btn brand bt-only" id="prConnect" type="button">เชื่อมต่อเครื่องพิมพ์</button>
         <button class="btn ok" id="prTest" type="button">ทดสอบพิมพ์</button>
       </div>
       <p class="muted" id="prMsg" style="min-height:1.4em;margin:10px 0 0"></p>
       <label style="margin-top:14px">ขนาดกระดาษ</label>
       <div class="cats" id="prPaper"><button type="button" class="chip" data-paper="58">58 มม.</button><button type="button" class="chip" data-paper="80">80 มม.</button></div>
-      <label>วิธีส่งข้อมูล — ถ้ากระดาษไม่ออก ลองเปลี่ยนแล้วกดทดสอบพิมพ์</label>
-      <div class="cats" id="prModes"></div>
+      <label class="bt-only">วิธีส่งข้อมูล — ถ้ากระดาษไม่ออก ลองเปลี่ยนแล้วกดทดสอบพิมพ์</label>
+      <div class="cats bt-only" id="prModes"></div>
       <label class="perm" style="margin-top:4px"><input type="checkbox" id="prKitchen"><span>พิมพ์ใบสั่งครัวออกเครื่องนี้ด้วย</span></label>
-      <div class="actions" style="margin-top:14px">
+      <div class="actions bt-only" style="margin-top:14px">
         <button class="btn ghost sm" id="prAny" type="button">ไม่เจอเครื่อง? แสดงอุปกรณ์ทั้งหมด</button>
         <button class="btn danger sm" id="prForget" type="button">ลืมเครื่องนี้</button>
       </div>
