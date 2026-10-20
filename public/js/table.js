@@ -1,10 +1,11 @@
 /* ---------- table modal ---------- */
 // cashIn survives re-renders, so another device's change doesn't wipe the amount the cashier typed
 // resvTime likewise keeps a picked booking time across the 3-second sync re-render
-let cur = null, curCat = '', payMethod = 'cash', cashIn = '', resvTime = '';
+// curQ keeps the menu search across the re-render that follows each tap on a dish
+let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', resvTime = '';
 // datetime-local wants local time; toISOString() alone is UTC, 7 hours behind in Bangkok
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-function openTable(id) { cur = id; curCat = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; $('modal').classList.remove('hidden'); renderModal(); }
+function openTable(id) { cur = id; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; $('modal').classList.remove('hidden'); renderModal(); }
 function closeModal() { cur = null; $('modal').classList.add('hidden'); }
 $('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) closeModal(); });
@@ -60,7 +61,7 @@ function renderModal() {
   b.innerHTML = `<div class="split osheet">
     <div class="mpane">
       <div class="msearch">
-        <label class="sbox">${icon('search')}<input id="search" placeholder="ค้นหาเมนู..." autocomplete="off"></label>
+        <label class="sbox">${icon('search')}<input id="search" placeholder="ค้นหาเมนู..." autocomplete="off" value="${esc(curQ)}"></label>
         <button class="btn gold" id="qaToggle" type="button">${icon('plus')}<span>เมนูใหม่</span></button>
       </div>
       <div id="qa" class="qa hidden">
@@ -72,7 +73,7 @@ function renderModal() {
         <div class="actions"><button class="btn brand sm" id="qaOrder">บันทึก + สั่งเลย</button><button class="btn ghost sm" id="qaOnly">บันทึกเมนูอย่างเดียว</button></div>
       </div>
       <div class="ctiles">${['', ...cats()].map(k => `<button class="ctile ${k === curCat ? 'on' : ''}" data-cat="${esc(k)}" type="button">${icon(k ? catIcon(k) : 'cloche')}<span>${esc(k || 'ทั้งหมด')}</span></button>`).join('')}</div>
-      <div class="menu-grid photo" id="mGrid">${list.map(m => `<button class="mi${m.out ? ' out' : ''}" data-add="${m.id}" data-n="${esc(m.name.toLowerCase())}" type="button" ${m.out ? 'disabled' : ''}>
+      <div class="menu-grid photo" id="mGrid">${list.map(m => `<button class="mi${m.out ? ' out' : ''}${curQ && !m.name.toLowerCase().includes(curQ) ? ' hidden' : ''}" data-add="${m.id}" data-n="${esc(m.name.toLowerCase())}" type="button" ${m.out ? 'disabled' : ''}>
           ${thumb(m.image, m.cat + ' ' + m.name, 'mimg')}
           <span class="mtext"><span class="mname">${esc(m.name)}</span><b>${m.out ? 'หมด' : '฿' + baht(m.price)}</b></span>
           <span class="madd">${icon('plus')}</span>
@@ -167,7 +168,7 @@ function renderModal() {
     $('qaPrice').onkeydown = e => { if (e.key === 'Enter') qaSave(true); };
   }
   $('search').oninput = e => {
-    const q = e.target.value.toLowerCase();
+    const q = curQ = e.target.value.trim().toLowerCase();
     $('mGrid').querySelectorAll('.mi').forEach(el => el.classList.toggle('hidden', !el.dataset.n.includes(q)));
   };
   $('kitchen').onclick = async () => {
@@ -193,7 +194,8 @@ function renderModal() {
   }
   $('preview').onclick = async () => {
     if (pendingQty && !confirm('มีรายการยังไม่ส่งครัว — เช็คบิลต่อเลย?')) return;
-    if (!await act('check_bill', { table: t.id })) return;
+    // a failure may mean another device changed the order: reload so the screen shows the new total
+    if (!await act('check_bill', { table: t.id, expect: c.total })) return act('state');
     toast(`เช็คบิลโต๊ะ ${t.name} ฿${baht(c.total)}`);
     printBill({ no: null, table: t.name, date: new Date(), items: t.order, ...c,
     servicePct: S.settings.service, vatPct: S.settings.vat, cash: null }, true);
@@ -203,8 +205,8 @@ function renderModal() {
     if (cash !== null && cash < c.total) return alert('รับเงินไม่พอ');
     if (pendingQty && !confirm('มีรายการยังไม่ส่งครัว — ชำระต่อเลย?')) return;
     if (!confirm(`ยืนยันชำระ ${METHODS[payMethod]} ฿${baht(c.total)} และปิดโต๊ะ?`)) return;
-    const d = await act('pay', { table: t.id, method: payMethod, cash });
-    if (d) { closeModal(); toast(`ชำระเงินแล้ว · ปิดโต๊ะ ${t.name}`); printBill(d.bill); }
+    const d = await act('pay', { table: t.id, method: payMethod, cash, expect: c.total });
+    if (d) { closeModal(); toast(`ชำระเงินแล้ว · ปิดโต๊ะ ${t.name}`); printBill(d.bill); } else act('state');
   };
   if ($('cancelOpen')) $('cancelOpen').onclick = async () => { if (await act('cancel_open', { table: t.id })) { closeModal(); toast(`ยกเลิกเปิดโต๊ะ ${t.name} แล้ว`); } };
   if ($('voidTable')) $('voidTable').onclick = async () => {

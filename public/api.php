@@ -187,6 +187,13 @@ function no_pending(int $tableId): void {
     $n = q('SELECT DISTINCT m.name FROM order_items i JOIN menu m ON m.id = i.menu_id WHERE i.table_id = ? AND m.pending = 1', [$tableId])->fetchAll(PDO::FETCH_COLUMN);
     if ($n) fail('รออนุมัติราคา: ' . implode(', ', $n) . ' — ให้คนที่มีสิทธิ์ "แก้เมนู" อนุมัติในแท็บเมนูก่อน');
 }
+// the cashier confirmed the total on screen; if another device changed the order since, stop instead of billing a different amount.
+// 5 satang slack: JS and PHP can round a half-satang differently, which must never block a payment
+function same_total(array $in, float $total): void {
+    if (isset($in['expect']) && abs((float)$in['expect'] - $total) > 0.05) {
+        fail('ยอดเปลี่ยนเป็น ฿' . number_format($total, 2) . ' (มีการแก้รายการจากเครื่องอื่น) — ตรวจรายการแล้วกดอีกครั้ง', 409);
+    }
+}
 // approving fixes the price on the menu and on every open order that already has the dish
 function approve_menu(int $id, float $price): void {
     q('UPDATE menu SET price = ?, pending = 0 WHERE id = ?', [$price, $id]);
@@ -381,6 +388,7 @@ try {
             if (!$items) fail('ไม่มีรายการ');
             no_pending((int)$t['id']);
             $c = calc($items, $t['disc_type'], $t['disc_value'], settings());
+            same_total($in, $c['total']);
             q('UPDATE dining_tables SET checked_at = ?, checked_total = ? WHERE id = ?', [now(), $c['total'], $t['id']]);
         });
         break;
@@ -394,6 +402,7 @@ try {
             $method = in_array($in['method'] ?? '', ['cash', 'transfer', 'other'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
             $s = settings();
             $c = calc($items, $t['disc_type'], $t['disc_value'], $s);
+            same_total($in, $c['total']);
             $cash = isset($in['cash']) && $method === 'cash' ? (money($in['cash']) ?? fail('จำนวนเงินที่รับไม่ถูกต้อง')) : null;
             if ($cash !== null && $cash < $c['total']) fail('รับเงินไม่พอ');
             q('INSERT INTO bills (table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cash, change_amt, cashier_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -626,6 +635,8 @@ try {
         $perms = $role === 'admin' ? [] : array_values(array_intersect(array_keys(PERMS), (array)($in['perms'] ?? [])));
         $pass = (string)($in['password'] ?? '');
         if ($username === '' || $name === '') fail('ใส่ชื่อผู้ใช้และชื่อ');
+        // deleted accounts are renamed "name#id" to free the name, so a live "#" name could block a later delete
+        if (str_contains($username, '#')) fail('ชื่อผู้ใช้ห้ามมีเครื่องหมาย #');
         if (!$id && mb_strlen($pass) < 4) fail('รหัสผ่านต้องยาวอย่างน้อย 4 ตัว');
         if ($pass !== '' && mb_strlen($pass) < 4) fail('รหัสผ่านต้องยาวอย่างน้อย 4 ตัว');
         $target = $id ? (q('SELECT role, perms FROM users WHERE id = ? AND active = 1', [$id])->fetch() ?: fail('ไม่พบผู้ใช้')) : null;
