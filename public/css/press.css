@@ -19,3 +19,18 @@ button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active
 @media (prefers-reduced-motion: reduce) {
   button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active { transform: none; filter: brightness(.88); }
 }
+
+/* ripple spreading from the touch point (added by js/press.js) */
+.rpl { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.rpl-dot { position: absolute; border-radius: 50%; background: currentColor; opacity: .18; transform: scale(0); animation: rpl .5s ease-out forwards; }
+@keyframes rpl { to { transform: scale(1); opacity: 0; } }
+
+/* mouse/trackpad only: buttons lift a little on hover (touch screens skip this so taps don't leave a stuck hover) */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):hover, [role="button"]:not([aria-disabled="true"]):hover { transform: translateY(-1px); }
+  button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active { transform: scale(.95); }
+  .tbl:not(:disabled):active, .btn.lg:not(:disabled):active, .mi:not(:disabled):active, .jump:not(:disabled):active { transform: scale(.97); }
+  .qty button:not(:disabled):active, .note:not(:disabled):active { transform: scale(.88); }
+}
+/* keyboard focus ring for every button */
+button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
