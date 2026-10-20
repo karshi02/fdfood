@@ -533,6 +533,13 @@ try {
         // dishes waiting for approval stay: they sit on open orders and must be approved or rejected
         $extra['cleared'] = tx(fn() => q('UPDATE menu SET active = 0 WHERE active = 1 AND pending = 0')->rowCount());
         break;
+    case 'cat_rename':
+        // rename a category on every dish in it; renaming to an existing category merges them, to '' drops the category
+        need('menu');
+        $from = str($in, 'from', 100); $to = str($in, 'to', 100);
+        if ($from === '') fail('เลือกหมวดก่อน');
+        $extra['moved'] = tx(fn() => q('UPDATE menu SET cat = ? WHERE cat = ? AND active = 1', [$to, $from])->rowCount());
+        break;
     case 'menu_del':
         need('menu');
         tx(function () use ($in) {

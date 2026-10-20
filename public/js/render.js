@@ -76,6 +76,14 @@ function renderMenu() {
   if (menuCat && !all.includes(menuCat)) menuCat = '';
   $('menuCats').innerHTML = ['', ...all].map(k => `<button class="chip ${k === menuCat ? 'on' : ''}" data-mcat="${esc(k)}">${esc(k || 'ทั้งหมด')}</button>`).join('');
   $('menuCats').querySelectorAll('[data-mcat]').forEach(x => x.onclick = () => { menuCat = x.dataset.mcat; renderMenu(); });
+  // picking a category shows its rename / delete buttons to whoever may edit the menu
+  $('catBar').classList.toggle('hidden', !menuCat || !can('menu'));
+  if (menuCat && can('menu')) {
+    $('catBar').innerHTML = `<b>หมวด "${esc(menuCat)}" · ${S.menu.filter(m => m.cat === menuCat).length} เมนู</b>
+      <button class="btn ghost sm" id="catRen" type="button">เปลี่ยนชื่อหมวด</button><button class="btn danger sm" id="catDel" type="button">ลบหมวด</button>`;
+    $('catRen').onclick = () => renameCat(menuCat);
+    $('catDel').onclick = () => deleteCat(menuCat);
+  }
   const list = S.menu.filter(m => (!menuCat || m.cat === menuCat) && (!outOnly || m.out)
     && (!q || m.name.toLowerCase().includes(q) || m.cat.toLowerCase().includes(q)));
   const outN = S.menu.filter(m => m.out).length;
@@ -116,6 +124,25 @@ function renderMenu() {
     if (!confirm(`ลบเมนู "${m.name}"?\nบิลเก่าที่มีเมนูนี้ไม่เปลี่ยน`)) return;
     if (await act('menu_del', { id: m.id })) { if (Number($('mId').value) === m.id) resetMenuForm(); toast(`ลบ "${m.name}" แล้ว`); }
   });
+}
+async function renameCat(from) {
+  const v = prompt(`เปลี่ยนชื่อหมวด "${from}" เป็น
+(ใส่ชื่อหมวดที่มีอยู่แล้ว = รวมสองหมวดเข้าด้วยกัน)`, from);
+  if (v === null) return;
+  const to = v.trim();
+  if (!to) return alert('ใส่ชื่อหมวด (ถ้าจะเอาหมวดออก กด "ลบหมวด")');
+  if (to === from) return;
+  if (cats().includes(to) && !confirm(`มีหมวด "${to}" อยู่แล้ว — รวมเมนูหมวด "${from}" เข้าไปใน "${to}"?`)) return;
+  menuCat = to; // follow the category to its new name
+  const d = await act('cat_rename', { from, to });
+  if (d) toast(`เปลี่ยนหมวด "${from}" เป็น "${to}" แล้ว (${d.moved} เมนู)`);
+}
+async function deleteCat(from) {
+  if (!confirm(`ลบหมวด "${from}"?
+เมนูในหมวดนี้ไม่ถูกลบ แค่ย้ายไปอยู่ "ไม่มีหมวด"`)) return;
+  menuCat = '';
+  const d = await act('cat_rename', { from, to: '' });
+  if (d) toast(`ลบหมวด "${from}" แล้ว · ${d.moved} เมนูย้ายไป "ไม่มีหมวด"`);
 }
 // approve at the asked price or a corrected one; open orders with the dish follow the approved price
 async function approveDish(id) {

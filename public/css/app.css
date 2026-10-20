@@ -194,6 +194,8 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
 /* ---------- menu tab ---------- */
 .menu-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
 .menu-tools input[type=search] { flex: 1 1 auto; }
+.catbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: -4px 0 10px; }
+.catbar b { margin-right: auto; }
 .mgroup { font-size: 13px; font-weight: 600; color: var(--muted); padding: 14px 4px 6px; border-bottom: 1px solid var(--line); }
 .mrow { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); }
 .mrow.out .mname, .mrow.out .mprice { color: var(--muted); text-decoration: line-through; }
