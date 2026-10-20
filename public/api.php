@@ -407,6 +407,9 @@ try {
             $name = str($in, 'name');
             $price = money($in['price'] ?? null);
             if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
+            $id = (int)($in['id'] ?? 0);
+            if ($id && !q('SELECT id FROM menu WHERE id = ? AND active = 1 FOR UPDATE', [$id])->fetch()) fail('เมนูนี้ถูกลบไปแล้ว (อาจลบจากเครื่องอื่น)');
+            if (q('SELECT id FROM menu WHERE name = ? AND active = 1 AND id <> ?', [$name, $id])->fetch()) fail('มีเมนูชื่อนี้อยู่แล้ว');
             if (!empty($in['id'])) q('UPDATE menu SET name = ?, price = ?, cat = ? WHERE id = ?', [$name, $price, str($in, 'cat', 100), (int)$in['id']]);
             else q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($in, 'cat', 100)]);
             global $pdo;

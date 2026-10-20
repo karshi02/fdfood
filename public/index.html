@@ -45,31 +45,33 @@
   </section>
 
   <section id="tab-menu" class="hidden">
-    <div class="card" data-perm="menu">
-      <h2 id="menuFormTitle">เพิ่มเมนู</h2>
+    <div class="card" data-perm="menu" id="menuFormCard">
+      <div class="sheet-head" style="margin-bottom:10px"><h2 id="menuFormTitle" style="margin:0">เพิ่มเมนู</h2>
+        <button class="btn ghost sm" id="bulkBtn" type="button">+ เพิ่มหลายรายการ</button></div>
       <form id="menuForm" class="row">
         <input type="hidden" id="mId">
-        <div><label>ชื่อเมนู</label><input id="mName" required></div>
-        <div><label>ราคา (บาท)</label><input id="mPrice" type="number" min="0" step="0.01" required></div>
-        <div><label>หมวด</label><input id="mCat" list="catList" placeholder="เช่น อาหาร, เครื่องดื่ม"></div>
+        <div style="flex:2 1 200px"><label>ชื่อเมนู</label><input id="mName" required maxlength="150"></div>
+        <div><label>ราคา (บาท)</label><input id="mPrice" type="number" min="0" max="9999999" step="0.01" inputmode="decimal" required></div>
+        <div><label>หมวด</label><input id="mCat" list="catList" maxlength="100" placeholder="เช่น อีสาน, เครื่องดื่ม"></div>
         <div style="flex:0 0 auto" class="row">
-          <button class="btn brand" type="submit">บันทึก</button>
+          <button class="btn brand" type="submit" id="mSubmit">เพิ่มเมนู</button>
           <button class="btn ghost" type="button" id="mCancel">ล้าง</button>
         </div>
       </form>
+      <div id="bulkBox" class="hidden qa" style="margin:12px 0 0">
+        <label>พิมพ์ทีละบรรทัด: ชื่อ ราคา หมวด (หมวดใส่หรือไม่ก็ได้) เช่น "ลาบหมู 70 อีสาน" หรือ "เบียร์ 2 ขวด 150"</label>
+        <textarea id="bulkText" rows="6"></textarea>
+        <div class="actions"><button class="btn brand sm" id="bulkSave" type="button">เพิ่มทั้งหมด</button></div>
+      </div>
     </div>
     <div class="card">
-      <div class="sheet-head"><h2 style="margin:0">รายการเมนู <span class="muted" id="menuCount"></span></h2>
-        <div class="actions" style="margin:0" data-perm="menu">
-          <button class="btn ghost sm" id="bulkBtn">+ เพิ่มหลายรายการ</button>
-        </div></div>
-      <div id="bulkBox" class="hidden" style="margin-bottom:12px">
-        <label>พิมพ์ทีละบรรทัด: ชื่อ ราคา หมวด (หมวดใส่หรือไม่ก็ได้) เช่น "ลาบหมู 70 อีสาน"</label>
-        <textarea id="bulkText" rows="6"></textarea>
-        <div class="actions"><button class="btn brand sm" id="bulkSave">เพิ่มทั้งหมด</button></div>
+      <div class="menu-tools">
+        <input id="menuSearch" type="search" placeholder="ค้นหาเมนูหรือหมวด...">
+        <label class="perm" style="flex:0 0 auto"><input type="checkbox" id="menuOutOnly"> เฉพาะที่หมด</label>
       </div>
-      <input id="menuSearch" placeholder="ค้นหาเมนู..." style="margin-bottom:8px">
-      <div class="scroll-x"><table class="list"><thead><tr><th>ชื่อ</th><th>หมวด</th><th class="num">ราคา</th><th>สถานะ</th><th></th></tr></thead><tbody id="menuBody"></tbody></table></div>
+      <div class="cats scroll" id="menuCats"></div>
+      <p class="muted" id="menuCount" style="margin:0 0 8px"></p>
+      <div id="menuList"></div>
     </div>
   </section>
 

@@ -34,43 +34,80 @@ function renderTables() {
 // has the bill changed since it was printed for the customer?
 const sameTotal = t => Math.abs(calc(t.order, t.discount).total - t.checked.total) < 0.005;
 
+let menuCat = '';
 function renderMenu() {
-  const q = $('menuSearch').value.trim().toLowerCase();
-  $('menuCount').textContent = `· ${S.menu.length} รายการ`;
-  $('menuBody').innerHTML = S.menu.filter(m => !q || (m.name + m.cat).toLowerCase().includes(q)).map(m => `<tr>
-    <td>${esc(m.name)}</td><td class="muted">${esc(m.cat)}</td><td class="num">${baht(m.price)}</td>
-    <td><button class="btn sm ${m.out ? 'danger' : 'ghost'}" data-out="${m.id}">${m.out ? 'หมด' : 'มีขาย'}</button></td>
-    <td class="num">${can('menu') ? `<button class="btn ghost sm" data-edit="${m.id}">แก้ไข</button> <button class="btn ghost sm" data-del="${m.id}">ลบ</button>` : ''}</td></tr>`).join('')
-    || '<tr><td colspan="5" class="muted">ไม่พบเมนู</td></tr>';
-  $('menuBody').querySelectorAll('[data-out]').forEach(b => b.onclick = () => act('menu_out', { id: Number(b.dataset.out) }));
-  $('menuBody').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+  const q = $('menuSearch').value.trim().toLowerCase(), outOnly = $('menuOutOnly').checked, edit = Number($('mId').value);
+  const all = cats();
+  if (menuCat && !all.includes(menuCat)) menuCat = '';
+  $('menuCats').innerHTML = ['', ...all].map(k => `<button class="chip ${k === menuCat ? 'on' : ''}" data-mcat="${esc(k)}">${esc(k || 'ทั้งหมด')}</button>`).join('');
+  $('menuCats').querySelectorAll('[data-mcat]').forEach(x => x.onclick = () => { menuCat = x.dataset.mcat; renderMenu(); });
+  const list = S.menu.filter(m => (!menuCat || m.cat === menuCat) && (!outOnly || m.out)
+    && (!q || m.name.toLowerCase().includes(q) || m.cat.toLowerCase().includes(q)));
+  const outN = S.menu.filter(m => m.out).length;
+  $('menuCount').textContent = `แสดง ${list.length} จาก ${S.menu.length} รายการ` + (outN ? ` · หมด ${outN}` : '');
+  // group by category in the order categories first appear; uncategorised last
+  const groups = new Map();
+  [...all, ''].forEach(k => groups.set(k, []));
+  list.forEach(m => groups.get(m.cat).push(m));
+  const editable = can('menu');
+  $('menuList').innerHTML = [...groups].filter(([, ms]) => ms.length).map(([k, ms]) => `
+    <div class="mgroup">${esc(k || 'ไม่มีหมวด')} <span class="muted">${ms.length}</span></div>
+    ${ms.map(m => `<div class="mrow${m.out ? ' out' : ''}${m.id === edit ? ' editing' : ''}">
+      <div class="mname">${esc(m.name)}</div>
+      <div class="mprice">฿${baht(m.price)}</div>
+      <button class="stock${m.out ? ' off' : ''}" data-out="${m.id}" aria-pressed="${m.out}">${m.out ? 'หมด' : 'มีขาย'}</button>
+      ${editable ? `<div class="mact"><button class="btn ghost sm" data-edit="${m.id}">แก้ไข</button><button class="btn ghost sm" data-del="${m.id}">ลบ</button></div>` : ''}
+    </div>`).join('')}`).join('')
+    || `<p class="muted">${S.menu.length ? 'ไม่พบเมนูที่ค้นหา' : 'ยังไม่มีเมนู — เพิ่มด้านบน'}</p>`;
+  $('menuList').querySelectorAll('[data-out]').forEach(b => b.onclick = async () => {
+    const m = S.menu.find(x => x.id == b.dataset.out);
+    if (await act('menu_out', { id: m.id })) toast(`${m.name}: ${m.out ? 'มีขายแล้ว' : 'หมดแล้ว'}`);
+  });
+  $('menuList').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const m = S.menu.find(x => x.id == b.dataset.edit);
     $('mId').value = m.id; $('mName').value = m.name; $('mPrice').value = m.price; $('mCat').value = m.cat;
-    $('menuFormTitle').textContent = 'แก้ไขเมนู'; $('mName').focus(); scrollTo(0, 0);
+    $('menuFormTitle').textContent = 'แก้ไข: ' + m.name; $('mSubmit').textContent = 'บันทึกการแก้ไข'; $('mCancel').textContent = 'ยกเลิกแก้ไข';
+    $('menuFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); $('mName').focus({ preventScroll: true });
+    renderMenu();
   });
-  $('menuBody').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-    if (confirm('ลบเมนูนี้?')) act('menu_del', { id: Number(b.dataset.del) }).then(d => d && toast('ลบเมนูแล้ว'));
+  $('menuList').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    const m = S.menu.find(x => x.id == b.dataset.del);
+    if (!confirm(`ลบเมนู "${m.name}"?\nบิลเก่าที่มีเมนูนี้ไม่เปลี่ยน`)) return;
+    if (await act('menu_del', { id: m.id })) { if (Number($('mId').value) === m.id) resetMenuForm(); toast(`ลบ "${m.name}" แล้ว`); }
   });
 }
-function resetMenuForm() { $('menuForm').reset(); $('mId').value = ''; $('menuFormTitle').textContent = 'เพิ่มเมนู'; }
+function resetMenuForm() {
+  $('menuForm').reset(); $('mId').value = '';
+  $('menuFormTitle').textContent = 'เพิ่มเมนู'; $('mSubmit').textContent = 'เพิ่มเมนู'; $('mCancel').textContent = 'ล้าง';
+  renderMenu();
+}
 $('menuForm').onsubmit = async e => {
   e.preventDefault();
-  if (await act('menu_save', { id: Number($('mId').value) || null, name: $('mName').value, price: Number($('mPrice').value), cat: $('mCat').value })) {
-    resetMenuForm(); $('mName').focus();
+  const id = Number($('mId').value) || null, name = $('mName').value.trim(), cat = $('mCat').value.trim();
+  if (!name) return alert('ใส่ชื่อเมนู');
+  if (S.menu.some(m => m.name === name && m.id !== id)) return alert(`มีเมนู "${name}" อยู่แล้ว`);
+  if (await act('menu_save', { id, name, price: Number($('mPrice').value), cat })) {
+    toast(id ? `บันทึก "${name}" แล้ว` : `เพิ่ม "${name}" แล้ว`);
+    resetMenuForm(); if (!id) $('mName').focus();
   }
 };
 $('mCancel').onclick = resetMenuForm;
 $('menuSearch').oninput = renderMenu;
-$('bulkBtn').onclick = () => $('bulkBox').classList.toggle('hidden');
+$('menuOutOnly').onchange = renderMenu;
+$('bulkBtn').onclick = () => { $('bulkBox').classList.toggle('hidden'); if (!$('bulkBox').classList.contains('hidden')) $('bulkText').focus(); };
+// "name price cat": the LAST number is the price, so names may contain numbers ("เบียร์ 2 ขวด 150")
+function parseMenuLine(l) {
+  const w = l.split(/\s+/), i = w.findLastIndex(x => /^\d+(\.\d+)?$/.test(x.replace(/,/g, '')));
+  if (i < 1) return null;
+  return { name: w.slice(0, i).join(' '), price: Number(w[i].replace(/,/g, '')), cat: w.slice(i + 1).join(' ') };
+}
 $('bulkSave').onclick = async () => {
   const bad = [], items = [];
-  $('bulkText').value.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
-    const m = l.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*(.*)$/);
-    if (m) items.push({ name: m[1].trim(), price: Number(m[2]), cat: m[3].trim() }); else bad.push(l);
-  });
+  $('bulkText').value.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => { const m = parseMenuLine(l); if (m) items.push(m); else bad.push(l); });
   if (!items.length) return alert('ไม่พบรายการ — รูปแบบ: ชื่อ ราคา หมวด');
   const d = await act('menu_bulk', { items });
   if (!d) return;
   $('bulkText').value = bad.join('\n');
-  alert(`เพิ่มแล้ว ${d.added} รายการ` + (items.length > d.added ? ` (ข้ามชื่อซ้ำ ${items.length - d.added})` : '') + (bad.length ? `\nอ่านไม่ได้ ${bad.length} บรรทัด (เหลือในกล่อง)` : ''));
+  toast(`เพิ่มแล้ว ${d.added} รายการ`);
+  if (items.length > d.added || bad.length) alert(`เพิ่มแล้ว ${d.added} รายการ` + (items.length > d.added ? ` (ข้ามชื่อซ้ำ/ราคาผิด ${items.length - d.added})` : '') + (bad.length ? `\nอ่านไม่ได้ ${bad.length} บรรทัด (เหลือในกล่อง)` : ''));
 };
