@@ -73,6 +73,7 @@ ol.steps b { font-weight: 600; }
 
 table.t { width: 100%; border-collapse: collapse; font-size: 16px; }
 table.t th, table.t td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+table.t th.c { white-space: nowrap; }
 table.t th { color: var(--muted); font-weight: 500; font-size: 14px; }
 table.t td.c, table.t th.c { text-align: center; }
 .y { color: var(--free); font-weight: 700; } .n { color: #cbd5e1; }
@@ -154,7 +155,7 @@ table.t td.c, table.t th.c { text-align: center; }
       <li>ล็อกอินด้วยบัญชีเจ้าของร้าน <span class="k">admin</span></li>
       <li>ครั้งแรก ระบบจะ<b>บังคับเปลี่ยนรหัสผ่าน</b>ก่อนใช้งานส่วนอื่น</li>
       <li>ไปแท็บ <span class="k">ตั้งค่า</span> ใส่ชื่อร้าน ที่อยู่ เบอร์ พร้อมเพย์</li>
-      <li>สร้างบัญชีให้พนักงานแต่ละคน แล้วเพิ่มเมนูในแท็บ <span class="k">เมนูอาหาร</span></li>
+      <li>สร้างบัญชีให้พนักงานแต่ละคน แล้วเพิ่มเมนูในแท็บ <span class="k">เมนูอาหาร</span> (ระบบใหม่เริ่มต้นแบบไม่มีเมนู)</li>
     </ol>
     <div>
       <div class="mock" style="max-width:420px;margin:0 auto">
@@ -273,7 +274,7 @@ table.t td.c, table.t th.c { text-align: center; }
     </div>
     <ol class="steps">
       <li><b>เลือกหมวด หรือค้นหา</b> แล้วแตะเมนูเพื่อสั่ง แตะซ้ำ = เพิ่มจำนวน (เมนูที่ตั้ง "หมด" จะกดไม่ได้)</li>
-      <li>ไม่มีเมนูที่ลูกค้าต้องการ? คนที่มีสิทธิ์แก้เมนูกด <span class="k">+ เมนูใหม่</span> แล้ว "บันทึก + สั่งเลย"</li>
+      <li>ไม่มีเมนูที่ลูกค้าต้องการ? กด <span class="k">+ เมนูใหม่</span> แล้ว "บันทึก + สั่งเลย"</li>
       <li>ปรับจำนวนด้วย − / + และแตะ <b>+ หมายเหตุ</b> เช่น ไม่เผ็ด ไม่ใส่ผัก</li>
       <li>กด <span class="k">ส่งครัว</span> ระบบพิมพ์เฉพาะรายการที่มีป้าย <b>ใหม่</b></li>
     </ol>
@@ -347,21 +348,22 @@ table.t td.c, table.t th.c { text-align: center; }
     <div>
       <div class="card" style="margin-bottom:18px">
         <h2>เพิ่มทีละรายการ</h2>
-        <p style="font-size:17px;margin:0">กรอกชื่อเมนู ราคา หมวด แล้วกด <span class="k">บันทึก</span> · กด <span class="k">แก้ไข</span> ท้ายรายการเพื่อเปลี่ยนชื่อ/ราคา</p>
+        <p style="font-size:17px;margin:0">กรอกชื่อเมนู ราคา หมวด แล้วกด <span class="k">เพิ่มเมนู</span> (พนักงานทุกคนเพิ่มได้) · ชื่อซ้ำกับเมนูที่มีอยู่จะเพิ่มไม่ได้</p>
       </div>
       <div class="card">
         <h2>เพิ่มหลายรายการพร้อมกัน</h2>
-        <p style="font-size:17px;margin:0 0 10px">กด <span class="k">+ เพิ่มหลายรายการ</span> พิมพ์บรรทัดละเมนู: <b>ชื่อ ราคา หมวด</b></p>
-        <div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-family:Consolas,monospace;font-size:15px;line-height:1.6">ลาบหมู 70 อีสาน<br>ส้มตำไทย 60 อีสาน<br>น้ำเปล่า 15 เครื่องดื่ม</div>
+        <p style="font-size:17px;margin:0 0 10px">กด <span class="k">+ เพิ่มหลายรายการ</span> พิมพ์บรรทัดละเมนู: <b>ชื่อ ราคา หมวด</b> (ตัวเลขตัวสุดท้ายคือราคา ชื่อจึงมีตัวเลขได้)</p>
+        <div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-family:Consolas,monospace;font-size:15px;line-height:1.6">ลาบหมู 70 อีสาน<br>ส้มตำไทย 60 อีสาน<br>เบียร์ 2 ขวด 150 เครื่องดื่ม</div>
       </div>
     </div>
     <div>
       <div class="card" style="margin-bottom:18px">
-        <h2>ของหมด</h2>
+        <h2>ค้นหา และของหมด</h2>
         <p style="font-size:17px;margin:0">กดปุ่ม <span class="k">มีขาย</span> ให้เป็น <span class="k" style="background:#fef2f2;color:var(--danger)">หมด</span> เมนูนั้นจะกดสั่งไม่ได้ทุกเครื่อง กดอีกครั้งเมื่อมีของ</p>
-        <p class="muted" style="font-size:15px;margin:8px 0 0">พนักงานทุกคนตั้งเมนูหมดได้</p>
+        <p class="muted" style="font-size:15px;margin:8px 0 0">พนักงานทุกคนตั้งเมนูหมดได้ · เมนูแสดงแยกตามหมวด กรองด้วยปุ่มหมวด ช่องค้นหา หรือติ๊ก <b>เฉพาะที่หมด</b></p>
       </div>
-      <div class="note">การเพิ่ม/แก้ราคาเมนู ต้องมีสิทธิ์ "แก้เมนู / ราคา" · เปลี่ยนราคาแล้วไม่กระทบบิลที่ชำระไปแล้ว</div>
+      <div class="note">ปุ่ม <b>แก้ไข / ลบ</b> และ <b>+ เพิ่มหลายรายการ</b> ต้องมีสิทธิ์ "แก้ / ลบเมนูและราคา" · เปลี่ยนราคาหรือลบเมนูแล้ว บิลเก่าไม่เปลี่ยน</div>
+      <div class="note warn" style="margin-top:14px">เจ้าของร้านมีปุ่ม <b>ลบเมนูทั้งหมด</b> (ต้องพิมพ์คำว่า "ลบ" ยืนยัน) ใช้ตอนเริ่มเมนูใหม่ทั้งร้าน โต๊ะที่เปิดอยู่และบิลเก่าไม่เปลี่ยน</div>
     </div>
   </div>
   <div class="foot"><span>โคขุน POS</span><span>10</span></div>
@@ -434,8 +436,8 @@ table.t td.c, table.t th.c { text-align: center; }
     <table class="t">
       <thead><tr><th>สิทธิ์</th><th class="c">พนักงาน</th><th class="c">แอดมิน</th><th class="c">เจ้าของร้าน</th></tr></thead>
       <tbody>
-        <tr><td>จอง เปิดโต๊ะ สั่งอาหาร ส่งครัว รับเงิน ตั้งเมนูหมด</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td></tr>
-        <tr><td>แก้เมนู / ราคา</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>งานหน้าร้าน: จอง เปิดโต๊ะ สั่ง ส่งครัว รับเงิน เพิ่มเมนู ตั้งของหมด</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>แก้ / ลบเมนูและราคา</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
         <tr><td>ให้ส่วนลด</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
         <tr><td>ลดรายการที่ส่งครัวแล้ว</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
         <tr><td>ดูยอดขาย / แดชบอร์ด / รายจ่าย</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
@@ -450,7 +452,7 @@ table.t td.c, table.t th.c { text-align: center; }
         <li>เลือกแบบสำเร็จรูป <b>เจ้าของร้าน / แอดมิน / พนักงาน</b></li>
         <li>ติ๊กเพิ่มหรือเอาออกทีละข้อได้ แล้วกด <span class="k">บันทึก</span></li>
       </ol>
-      <div class="note">ให้สิทธิ์ได้เฉพาะสิทธิ์ที่ตัวเองมี · เฉพาะเจ้าของร้านสร้างเจ้าของร้านคนอื่นได้ · ให้แต่ละคนใช้บัญชีตัวเอง ชื่อแคชเชียร์จะขึ้นในบิล</div>
+      <div class="note">ให้สิทธิ์ได้เฉพาะสิทธิ์ที่ตัวเองมี และแก้/ลบได้เฉพาะบัญชีที่สิทธิ์ไม่เกินตัวเอง · เฉพาะเจ้าของร้านสร้างเจ้าของร้านคนอื่นได้ · ตั้งรหัสใหม่ให้ใคร คนนั้นจะถูกออกจากระบบทุกเครื่อง · ให้แต่ละคนใช้บัญชีตัวเอง ชื่อแคชเชียร์จะขึ้นในบิล</div>
     </div>
   </div>
   <div class="foot"><span>โคขุน POS</span><span>13</span></div>
@@ -493,7 +495,7 @@ table.t td.c, table.t th.c { text-align: center; }
     <div>
       <div class="card" style="margin-bottom:14px"><b style="font-size:18px">ล็อกอินไม่ได้</b><p style="font-size:16px;margin:4px 0 0">ใส่รหัสผิดหลายครั้งจะถูกล็อก 5 นาที รอแล้วลองใหม่ หรือให้เจ้าของร้านตั้งรหัสใหม่ในแท็บตั้งค่า</p></div>
       <div class="card" style="margin-bottom:14px"><b style="font-size:18px">สำรองข้อมูล (เครื่องในร้าน)</b><p style="font-size:16px;margin:4px 0 0">ดับเบิลคลิก <span class="k">backup.bat</span> ไฟล์อยู่ในโฟลเดอร์ backups เก็บย้อนหลัง 60 วัน</p></div>
-      <div class="card"><b style="font-size:18px">ความปลอดภัย</b><p style="font-size:16px;margin:4px 0 0">อย่าใช้บัญชีร่วมกัน ออกจากระบบทุกครั้งเมื่อใช้เครื่องสาธารณะ</p></div>
+      <div class="card"><b style="font-size:18px">ความปลอดภัย</b><p style="font-size:16px;margin:4px 0 0">อย่าใช้บัญชีร่วมกัน ออกจากระบบทุกครั้งเมื่อใช้เครื่องสาธารณะ · ติดตั้งเป็นแอปบนแท็บเล็ตได้: เมนูเบราว์เซอร์ › "เพิ่มลงในหน้าจอหลัก"</p></div>
     </div>
   </div>
   <div class="foot"><span>โคขุน POS</span><span>15</span></div>
