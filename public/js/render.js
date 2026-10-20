@@ -45,7 +45,7 @@ function renderTables() {
       info = `${t.order.reduce((a, i) => a + i.qty, 0)} รายการ · ฿${baht(calc(t.order, t.discount).total)} · ${mins} นาที`;
     }
     // one big action per card: free -> start using it, booked -> seat the guests, busy -> open the order
-    const btn = t.status === 'free' ? ['go', 'chair', 'ใช้งาน']
+    const btn = t.status === 'free' ? ['go', 'chair', 'กดเปิดโต๊ะ']
       : t.status === 'resv' ? ['go', 'chair', 'เปิดโต๊ะ']
       : t.checked ? ['pay', 'receipt', 'รับชำระ'] : ['view', 'receipt', 'ออเดอร์'];
     return `<div class="tbl ${t.status}${t.checked ? ' checked' : ''}${wait ? ' wait' : ''}" data-id="${t.id}" role="button" tabindex="0">
@@ -59,7 +59,7 @@ function renderTables() {
     const id = Number(el.dataset.id);
     el.onclick = () => openTable(id);
     el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTable(id); } };
-    // "ใช้งาน"/"เปิดโต๊ะ" opens the table for ordering in one tap; other states just open it
+    // "กดเปิดโต๊ะ"/"เปิดโต๊ะ" opens the table for ordering in one tap; other states just open it
     // straight to the menu; the table only opens when the first dish is added
     el.querySelector('.tact').onclick = e => { e.stopPropagation(); openTable(id, e.currentTarget.dataset.act !== 'busy'); };
   });
