@@ -116,7 +116,7 @@ table.t td.c, table.t th.c { text-align: center; }
   <div class="grid3" style="gap:18px">
     <div class="card feat"><b>ผังโต๊ะแบบสด</b><span>เห็นสถานะทุกโต๊ะ ว่าง / จอง / มีลูกค้า และยอดค้างชำระ อัปเดตทุกเครื่องพร้อมกัน</span></div>
     <div class="card feat"><b>สั่งอาหารและส่งครัว</b><span>กดเมนูเพื่อสั่ง ใส่หมายเหตุ แล้วพิมพ์ใบสั่งเข้าครัวเฉพาะรายการใหม่</span></div>
-    <div class="card feat"><b>เก็บเงิน 3 ช่องทาง</b><span>เงินสด (คำนวณเงินทอน), โอน (ขึ้น QR พร้อมเพย์), อื่นๆ พร้อมพิมพ์ใบเสร็จ</span></div>
+    <div class="card feat"><b>เก็บเงิน 4 แบบ</b><span>เงินสด (คำนวณเงินทอน), โอน (ขึ้น QR พร้อมเพย์), อื่นๆ, เงินสด+โอน แบ่งจ่าย พร้อมพิมพ์ใบเสร็จ</span></div>
     <div class="card feat"><b>ส่วนลด, Service, VAT</b><span>ลดเป็นบาทหรือ % คิด Service charge และ VAT ให้อัตโนมัติ</span></div>
     <div class="card feat"><b>แดชบอร์ดรายรับ-รายจ่าย</b><span>บันทึกรายจ่าย ดูกำไรรายวัน เมนูทำเงิน และยอดแยกช่องทางชำระ</span></div>
     <div class="card feat"><b>ผู้ใช้และสิทธิ์</b><span>แยกบัญชีพนักงาน กำหนดว่าใครให้ส่วนลด ยกเลิกบิล หรือดูยอดได้</span></div>
@@ -320,7 +320,7 @@ table.t td.c, table.t th.c { text-align: center; }
         <div class="row" style="border:0"><span>ส่วนลด 10%</span><span>-76.00</span></div>
         <div class="row" style="border:0"><span>Service 10%</span><span>68.40</span></div>
         <div class="tot" style="border-top:1px solid var(--line);padding-top:8px"><span>ยอดสุทธิ</span><span>฿752.40</span></div>
-        <div class="chips"><span class="chip on">เงินสด</span><span class="chip">โอน</span><span class="chip">อื่นๆ</span></div>
+        <div class="chips"><span class="chip on">เงินสด</span><span class="chip">โอน</span><span class="chip">อื่นๆ</span><span class="chip">เงินสด+โอน</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><small class="muted">รับเงิน (บาท)</small><div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px">1000</div></div>
           <div><small class="muted">เงินทอน</small><div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--bg)">247.60</div></div>
@@ -332,7 +332,7 @@ table.t td.c, table.t th.c { text-align: center; }
     </div>
     <ol class="steps">
       <li>ลูกค้าขอบิล: กด <span class="k">เช็คบิล + พิมพ์</span> ได้ใบแจ้งยอด (มี QR พร้อมเพย์ถ้าตั้งไว้) โต๊ะขึ้นว่า "รอชำระ" (ถ้าสั่งเพิ่มภายหลัง ระบบเตือนให้พิมพ์ใหม่)</li>
-      <li>เลือกช่องทางชำระ<br><b>เงินสด</b> ใส่ยอดที่รับหรือกดปุ่มลัด ระบบคิดเงินทอน<br><b>โอน</b> แสดง QR พร้อมเพย์พร้อมยอดให้ลูกค้าสแกน (ถ้าตั้งเบอร์ไว้)<br><b>อื่นๆ</b> เช่น บัตร หรือช่องทางอื่น</li>
+      <li>เลือกช่องทางชำระ<br><b>เงินสด</b> ใส่ยอดที่รับหรือกดปุ่มลัด ระบบคิดเงินทอน<br><b>โอน</b> แสดง QR พร้อมเพย์พร้อมยอดให้ลูกค้าสแกน (ถ้าตั้งเบอร์ไว้)<br><b>อื่นๆ</b> เช่น บัตร หรือช่องทางอื่น<br><b>เงินสด+โอน</b> ใส่ยอดโอน ระบบบอกเงินสดที่ต้องรับ แล้วคิดเงินทอนจากส่วนเงินสด</li>
       <li>กด <span class="k">ชำระเงิน + พิมพ์บิล</span> และยืนยัน ระบบพิมพ์ใบเสร็จและปิดโต๊ะ (เจ้าของร้านใส่ "วัน-เวลาชำระ" ย้อนหลังได้)</li>
     </ol>
   </div>
@@ -423,7 +423,7 @@ table.t td.c, table.t th.c { text-align: center; }
     </ol>
     <div class="card">
       <h2>ใบสรุปยอดช่วยตรวจเงินในลิ้นชัก</h2>
-      <p style="font-size:17px;margin:0">ยอดแยกตามช่องทาง เงินสด / โอน / อื่นๆ ใช้เทียบกับเงินสดจริงและยอดเข้าบัญชี</p>
+      <p style="font-size:17px;margin:0">ยอดแยกตามช่องทาง เงินสด / โอน / อื่นๆ (บิลเงินสด+โอน แยกเข้าแต่ละช่อง) ใช้เทียบกับเงินสดจริงและยอดเข้าบัญชี</p>
       <p style="font-size:17px;margin-bottom:0">บิลที่ถูกยกเลิกยังแสดงในรายการ แต่ไม่นับรวมยอดขาย</p>
       <p class="muted" style="font-size:15px;margin-bottom:0"><b>เฉพาะเจ้าของร้าน:</b> เปลี่ยนวิธีชำระของบิล, <b>เปลี่ยนวัน</b>ของบิล, และ <b>เปิดบิลชำระใหม่</b> (บิลเดิมกลายเป็นยกเลิก รายการกลับไปที่โต๊ะเพื่อเก็บเงินใหม่)</p>
     </div>
