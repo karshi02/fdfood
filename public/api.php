@@ -232,10 +232,9 @@ try {
         tx(function () use ($in) {
             $t = lock_table((int)($in['table'] ?? 0));
             if ($t['status'] === 'busy') fail('โต๊ะมีลูกค้าอยู่');
-            $name = str($in, 'name', 100);
-            if ($name === '') fail('กรอกชื่อลูกค้า');
+            // the form no longer asks for name/phone; '' (not NULL) still marks the table as reserved
             q("UPDATE dining_tables SET status = 'resv', resv_name = ?, resv_phone = ?, resv_time = ?, resv_pax = ? WHERE id = ?",
-                [$name, str($in, 'phone', 30), str($in, 'time', 20), min(999, max(1, (int)($in['pax'] ?? 1))), $t['id']]);
+                [str($in, 'name', 100), str($in, 'phone', 30), str($in, 'time', 20), min(999, max(1, (int)($in['pax'] ?? 1))), $t['id']]);
         });
         break;
     case 'resv_cancel':

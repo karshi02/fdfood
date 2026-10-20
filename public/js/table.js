@@ -17,12 +17,10 @@ function renderModal() {
   const b = $('mdBody');
 
   if (t.status !== 'busy') {
-    const r = t.resv || { name: '', phone: '', time: '', pax: 2 };
+    const r = t.resv || { time: '', pax: 2 };
     b.innerHTML = `<div class="card">
       <h2>${t.status === 'resv' ? 'ข้อมูลการจอง' : 'จองโต๊ะ'}</h2>
       <div class="row">
-        <div><label>ชื่อลูกค้า</label><input id="rName" value="${esc(r.name)}"></div>
-        <div><label>เบอร์โทร</label><input id="rPhone" value="${esc(r.phone)}"></div>
         <div><label>วัน-เวลา</label><input id="rTime" type="datetime-local" value="${esc(String(r.time || '').replace(' ', 'T'))}"></div>
         <div><label>จำนวนคน</label><input id="rPax" type="number" min="1" value="${esc(r.pax)}"></div>
       </div>
@@ -32,8 +30,7 @@ function renderModal() {
         <button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button>
       </div></div>`;
     $('rSave').onclick = async () => {
-      if (!$('rName').value.trim()) return alert('กรอกชื่อลูกค้า');
-      if (await act('resv_save', { table: t.id, name: $('rName').value, phone: $('rPhone').value, time: $('rTime').value.replace('T', ' '), pax: Number($('rPax').value) })) closeModal();
+      if (await act('resv_save', { table: t.id, time: $('rTime').value.replace('T', ' '), pax: Number($('rPax').value) })) closeModal();
     };
     if ($('rCancel')) $('rCancel').onclick = async () => { if (confirm('ยกเลิกการจอง?') && await act('resv_cancel', { table: t.id })) { closeModal(); toast(`ยกเลิกการจองโต๊ะ ${t.name} แล้ว`); } };
     $('open').onclick = () => act('open', { table: t.id });
@@ -61,7 +58,7 @@ function renderModal() {
       <div class="menu-grid" id="mGrid">${list.map(m => `<button class="mi" data-add="${m.id}" data-n="${esc(m.name.toLowerCase())}" ${m.out ? 'disabled style="opacity:.45"' : ''}>${esc(m.name)}<span>${m.out ? 'หมด' : '฿' + baht(m.price)}</span></button>`).join('') || '<p class="muted">ไม่มีเมนู</p>'}</div>
     </div>
     <div class="card order" id="orderCard">
-      <h2>รายการที่สั่ง ${t.resv ? `<span class="muted">· ${esc(t.resv.name)}</span>` : ''}</h2>
+      <h2>รายการที่สั่ง ${t.resv && t.resv.name ? `<span class="muted">· ${esc(t.resv.name)}</span>` : ''}</h2>
       <table class="list"><tbody>${t.order.map(i => `<tr>
         <td>${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}
           <div class="muted">฿${baht(i.price)} · <button class="note" data-note="${i.id}">${i.note ? esc(i.note) : '+ หมายเหตุ'}</button></div></td>

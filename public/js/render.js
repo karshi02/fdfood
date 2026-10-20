@@ -19,7 +19,7 @@ function renderTables() {
     <div class="stat"><span class="muted">ยอดค้างชำระ</span><b>฿${baht(busy.reduce((a, t) => a + calc(t.order, t.discount).total, 0))}</b></div>`;
   $('tableGrid').innerHTML = S.tables.map(t => {
     let st = 'ว่าง', info = '';
-    if (t.status === 'resv') { st = 'จองแล้ว'; info = `${esc(t.resv.name)} · ${esc(t.resv.time)} · ${esc(t.resv.pax)} คน`; }
+    if (t.status === 'resv') { st = 'จองแล้ว'; info = [t.resv.name, t.resv.time, t.resv.pax + ' คน'].filter(Boolean).map(esc).join(' · '); }
     if (t.status === 'busy') {
       const mins = Math.max(0, Math.floor((Date.now() - toDate(t.openedAt)) / 60000));
       st = t.checked ? (sameTotal(t) ? 'เช็คบิลแล้ว · รอชำระ' : 'ยอดเปลี่ยนหลังเช็คบิล')
