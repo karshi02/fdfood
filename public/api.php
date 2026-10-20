@@ -548,6 +548,15 @@ try {
         if ($from === '') fail('เลือกหมวดก่อน');
         $extra['moved'] = tx(fn() => q('UPDATE menu SET cat = ? WHERE cat = ? AND active = 1', [$to, $from])->rowCount());
         break;
+    case 'menu_cat':
+        // move one dish to another category from the menu list dropdown (doesn't touch price or approval)
+        need('menu');
+        tx(function () use ($in) {
+            $id = (int)($in['id'] ?? 0);
+            q('SELECT id FROM menu WHERE id = ? AND active = 1 FOR UPDATE', [$id])->fetch() ?: fail('ไม่พบเมนู (อาจถูกลบจากเครื่องอื่น)');
+            q('UPDATE menu SET cat = ? WHERE id = ?', [str($in, 'cat', 100), $id]);
+        });
+        break;
     case 'menu_del':
         need('menu');
         tx(function () use ($in) {

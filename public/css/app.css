@@ -201,6 +201,7 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
 .mrow.out .mname, .mrow.out .mprice { color: var(--muted); text-decoration: line-through; }
 .mrow.editing { background: var(--brand-soft); border-radius: 8px; }
 .mname { min-width: 0; overflow-wrap: anywhere; }
+.mcatsel { display: block; margin-top: 4px; max-width: 220px; padding: 3px 8px; font: inherit; font-size: 13px; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .mprice { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; min-width: 72px; }
 .mact { display: flex; gap: 6px; }
 .stock { min-width: 72px; min-height: 34px; border-radius: 99px; border: 1px solid var(--ok-line); background: var(--ok-soft); color: var(--free); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }

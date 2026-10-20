@@ -15,7 +15,9 @@ function render() {
   $('menuBadge').classList.toggle('hidden', !waitN);
   $('bellDot').classList.toggle('hidden', !waitN);
   $('bellBtn').title = waitN ? `เมนูรออนุมัติราคา ${waitN} รายการ` : 'ไม่มีเมนูรออนุมัติ';
-  renderTables(); renderMenu();
+  renderTables();
+  // a category dropdown that is open would close if the list re-rendered under it (sync every 3 s)
+  if (!document.activeElement || !document.activeElement.classList.contains('mcatsel')) renderMenu();
   if (can('settings')) renderSettings();
 }
 
@@ -98,7 +100,8 @@ function renderMenu() {
   $('menuList').innerHTML = [...groups].filter(([, ms]) => ms.length).map(([k, ms]) => `
     <div class="mgroup">${k === WAIT ? 'รออนุมัติราคา' + (editable ? '' : ' (ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ)') : esc(k || 'ไม่มีหมวด')} <span class="muted">${ms.length}</span></div>
     ${ms.map(m => `<div class="mrow${m.out ? ' out' : ''}${m.id === edit ? ' editing' : ''}${m.pending ? ' wait' : ''}">
-      <div class="mname">${esc(m.name)}${m.pending ? `<span class="tag wait">รออนุมัติ</span><div class="muted">${esc(m.cat || 'ไม่มีหมวด')}${m.by ? ' · เพิ่มโดย ' + esc(m.by) : ''}</div>` : ''}</div>
+      <div class="mname">${esc(m.name)}${m.pending ? `<span class="tag wait">รออนุมัติ</span><div class="muted">${esc(m.cat || 'ไม่มีหมวด')}${m.by ? ' · เพิ่มโดย ' + esc(m.by) : ''}</div>` : ''}${editable && !m.pending
+        ? `<select class="mcatsel" data-mcatsel="${m.id}" aria-label="หมวดของ ${esc(m.name)}">${[...all, ''].map(k => `<option value="${esc(k)}" ${k === m.cat ? 'selected' : ''}>${esc(k || 'ไม่มีหมวด')}</option>`).join('')}<option value="${NEWCAT}">+ หมวดใหม่...</option></select>` : ''}</div>
       <div class="mprice">฿${baht(m.price)}</div>
       <button class="stock${m.out ? ' off' : ''}" data-out="${m.id}" aria-pressed="${m.out}">${m.out ? 'หมด' : 'มีขาย'}</button>
       ${!editable ? '' : m.pending
@@ -108,6 +111,18 @@ function renderMenu() {
     || `<p class="muted">${S.menu.length ? 'ไม่พบเมนูที่ค้นหา' : 'ยังไม่มีเมนู — เพิ่มด้านบน'}</p>`;
   $('menuList').querySelectorAll('[data-ok]').forEach(b => b.onclick = () => approveDish(Number(b.dataset.ok)));
   $('menuList').querySelectorAll('[data-no]').forEach(b => b.onclick = () => rejectDish(Number(b.dataset.no)));
+  $('menuList').querySelectorAll('[data-mcatsel]').forEach(s => s.onchange = async () => {
+    const m = S.menu.find(x => x.id == s.dataset.mcatsel);
+    let cat = s.value;
+    if (cat === NEWCAT) {
+      const v = prompt(`หมวดใหม่ของ "${m.name}"`);
+      cat = v === null ? '' : v.trim();
+      if (!cat) { s.value = m.cat; return; }
+    }
+    s.blur(); // let the list re-render with the dish under its new category
+    if (await act('menu_cat', { id: m.id, cat })) toast(`ย้าย "${m.name}" ไปหมวด ${cat || 'ไม่มีหมวด'} แล้ว`);
+    else renderMenu();
+  });
   $('menuList').querySelectorAll('[data-out]').forEach(b => b.onclick = async () => {
     const m = S.menu.find(x => x.id == b.dataset.out);
     if (await act('menu_out', { id: m.id })) toast(`${m.name}: ${m.out ? 'มีขายแล้ว' : 'หมดแล้ว'}`);
@@ -144,6 +159,7 @@ async function deleteCat(from) {
   const d = await act('cat_rename', { from, to: '' });
   if (d) toast(`ลบหมวด "${from}" แล้ว · ${d.moved} เมนูย้ายไป "ไม่มีหมวด"`);
 }
+const NEWCAT = 'new'; // dropdown entry that asks for a new category name
 // approve at the asked price or a corrected one; open orders with the dish follow the approved price
 async function approveDish(id) {
   const m = S.menu.find(x => x.id === id); if (!m) return;
