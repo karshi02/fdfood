@@ -159,9 +159,9 @@
 /* phones: the floating cart bar is the shortcut; pay buttons sit at the end of the order (as in the mockup)
    instead of a second pinned bar stacked under it */
 @media (max-width: 760px) { .osheet .paybar { position: static; background: none; padding-top: 4px; } }
-/* three payment choices (cash / transfer / other): one row everywhere */
-.ptiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 760px) { .ptiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ptile { flex-direction: column; gap: 4px; min-height: 64px; font-size: 13px; } }
+/* four payment choices (cash / transfer / other / cash+transfer): one row everywhere */
+.ptiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 760px) { .ptiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .ptile { flex-direction: column; gap: 4px; min-height: 64px; font-size: 13px; } }
 /* owner-only bill controls in the sales report */
 .owneract { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
 .owneract select { width: auto; padding: 5px 8px; font-size: 13px; min-height: 34px; }

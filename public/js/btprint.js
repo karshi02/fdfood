@@ -474,6 +474,7 @@ const BT = (() => {
     L.gap(4);
     L.pair('ยอดสุทธิ', `฿${baht(b.total)}`, Z.big, true);
     if (!isPreview) L.pair('ชำระโดย', METHODS[b.method] || '', Z.base);
+    if (b.method === 'mixed') { L.pair('โอน', baht(b.transfer), Z.base); L.pair('เงินสด', baht(b.total - b.transfer), Z.base); }
     if (b.cash !== null && b.cash !== undefined) { L.pair('รับเงิน', baht(b.cash), Z.base); L.pair('เงินทอน', baht(b.change), Z.base); }
     if (isPreview && s.promptpay) {
       const payload = promptpayPayload(s.promptpay, b.total);

@@ -10,7 +10,7 @@ async function loadReport() {
 function dayData() {
   const ok = report.bills.filter(b => !b.void), byMethod = {}, items = {};
   ok.forEach(b => {
-    byMethod[b.method] = (byMethod[b.method] || 0) + b.total;
+    Object.entries(payParts(b)).forEach(([k, v]) => { byMethod[k] = (byMethod[k] || 0) + v; });
     b.items.forEach(i => { const x = items[i.name] || (items[i.name] = { name: i.name, qty: 0, amt: 0 }); x.qty += i.qty; x.amt += i.qty * i.price; });
   });
   // bill items keep no category, so group by the dish's current one; deleted or renamed dishes fall under "ไม่มีหมวด"
@@ -29,7 +29,7 @@ function renderReport() {
     ${Object.entries(d.byMethod).map(([k, v]) => `<div class="stat"><span class="muted">${METHODS[k]}</span><b>฿${baht(v)}</b></div>`).join('')}`;
   $('billBody').innerHTML = d.bills.slice().reverse().map(b => `<tr class="${b.void ? 'void' : ''}">
     <td><button class="linkbtn" data-view="${b.no}" title="ดูรายการในบิล">#${billNo(b)}</button></td><td>${toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td><td>${esc(b.table)}</td>
-    <td>${esc(b.cashier)}</td><td>${b.void ? 'ยกเลิก' : METHODS[b.method]}</td><td class="num">${baht(b.total)}</td>
+    <td>${esc(b.cashier)}</td><td>${b.void ? 'ยกเลิก' : METHODS[b.method]}${b.method === 'mixed' && !b.void ? `<div class="muted">สด ${baht(b.total - b.transfer)} · โอน ${baht(b.transfer)}</div>` : ''}</td><td class="num">${baht(b.total)}</td>
     <td class="num" style="white-space:nowrap"><button class="btn ghost sm" data-print="${b.no}">พิมพ์ซ้ำ</button>
     ${isOwner() ? `<button class="btn ghost sm" data-redate="${b.no}">เปลี่ยนวัน</button>` : ''}
     ${b.void ? '' : `<button class="btn danger sm" data-void="${b.no}">ยกเลิก</button>`}
@@ -82,6 +82,7 @@ function viewBill(b) {
       ${b.service ? `<tr><td>ค่าบริการ ${b.servicePct}%</td><td class="num">${baht(b.service)}</td></tr>` : ''}
       ${b.vat ? `<tr><td>VAT ${b.vatPct}%</td><td class="num">${baht(b.vat)}</td></tr>` : ''}
       <tr><td><b>ยอดสุทธิ</b></td><td class="num"><b>฿${baht(b.total)}</b></td></tr>
+      ${b.method === 'mixed' ? `<tr><td>เงินสด</td><td class="num">${baht(b.total - b.transfer)}</td></tr><tr><td>โอน</td><td class="num">${baht(b.transfer)}</td></tr>` : ''}
       <tr><td>${b.void ? 'ยกเลิกแล้ว' : 'ชำระโดย ' + (METHODS[b.method] || b.method)}</td><td class="num">${b.cash != null ? `รับ ${baht(b.cash)} · ทอน ${baht(b.change)}` : ''}</td></tr>
     </table>`;
   $('bvPrint').onclick = () => printBill(b);

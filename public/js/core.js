@@ -3,8 +3,10 @@ const baht = n => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, 
 const r2 = n => Math.round(n * 100) / 100;
 const $ = id => document.getElementById(id);
 // labels for every method a bill can carry; qr and card only appear on bills made before the 3-choice payment screen
-const METHODS = { cash: 'เงินสด', transfer: 'โอน', other: 'อื่นๆ', qr: 'พร้อมเพย์/QR', card: 'บัตร' };
+const METHODS = { cash: 'เงินสด', transfer: 'โอน', other: 'อื่นๆ', mixed: 'เงินสด+โอน', qr: 'พร้อมเพย์/QR', card: 'บัตร' };
 const PAY_METHODS = ['cash', 'transfer', 'other'];
+// how much of a bill each method took: a mixed bill splits into its cash and transfer parts
+const payParts = b => b.method === 'mixed' ? { cash: r2(b.total - b.transfer), transfer: b.transfer } : { [b.method]: b.total };
 const pad = n => String(n).padStart(2, '0');
 const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 // bills are stored as yy (พ.ศ.) + 5-digit counter (6900001); people only see the counter: 00001

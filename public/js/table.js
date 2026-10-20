@@ -1,18 +1,18 @@
 /* ---------- table modal ---------- */
-// cashIn survives re-renders, so another device's change doesn't wipe the amount the cashier typed
+// cashIn / xferIn survive re-renders, so another device's change doesn't wipe the amount the cashier typed
 // resvTime likewise keeps a picked booking time across the 3-second sync re-render
 // curQ keeps the menu search across the re-render that follows each tap on a dish
 // draft: the order sheet is showing for a table that isn't open yet; the first dish opens it on the server
 // opening: guests, dine-in/takeaway and (owner only) the open time, sent along with the first dish
 // orderAt / payAt: the owner's back-dated order and payment times; '' means now
-let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', resvTime = '', draft = false;
+let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', xferIn = '', resvTime = '', draft = false;
 let opening = { pax: '', takeaway: false, opened: '' }, orderAt = '', payAt = '';
 // datetime-local wants local time; toISOString() alone is UTC, 7 hours behind in Bangkok
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 // what every dish carries: it opens the table if it's the first one (the server ignores the opening fields otherwise)
 const dishExtra = () => ({ pax: Number(opening.pax) || null, takeaway: opening.takeaway ? 1 : 0, opened: isOwner() ? opening.opened : '', at: isOwner() ? orderAt : '' });
 function openTable(id, asDraft) {
-  cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; orderAt = ''; payAt = '';
+  cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; xferIn = ''; resvTime = ''; orderAt = ''; payAt = '';
   const t = S.tables.find(x => x.id === id);
   opening = { pax: t && t.resv ? String(t.resv.pax || '') : '', takeaway: false, opened: '' };
   $('modal').classList.remove('hidden'); renderModal();
@@ -91,7 +91,7 @@ function renderModal() {
   const thumb = (img, cat, cls) => img
     ? `<span class="${cls} photo"><img src="${esc(img)}" alt="" loading="lazy"></span>`
     : `<span class="${cls}">${icon(catIcon(cat))}</span>`;
-  const MICON = { cash: 'bill', transfer: 'qr', other: 'dots' };
+  const MICON = { cash: 'bill', transfer: 'qr', other: 'dots', mixed: 'coins' };
   // guests / dine-in or takeaway: the table's own once open, the open form's while still a draft
   const g = t.status === 'busy' ? { pax: t.pax, takeaway: t.takeaway } : { pax: Number(opening.pax) || null, takeaway: opening.takeaway };
   const guests = [g.pax ? g.pax + ' คน' : '', g.takeaway ? 'สั่งกลับบ้าน' : 'ทานที่ร้าน'].filter(Boolean).join(' · ');
@@ -155,11 +155,14 @@ function renderModal() {
         <div class="osec-h">${icon('wallet')}<span>ช่องทางการชำระเงิน</span></div>
         <div class="osec-b">
           ${isOwner() ? `<div class="ownat"><label>วัน-เวลาชำระ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="payAt" type="datetime-local" value="${esc(payAt)}"></div>` : ''}
-          <div class="ptiles">${PAY_METHODS.map(k => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k])}<span>${METHODS[k]}</span></button>`).join('')}</div>
-          ${payMethod === 'cash' ? `<div class="row">
+          <div class="ptiles">${[...PAY_METHODS, 'mixed'].map(k => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k])}<span>${METHODS[k]}</span></button>`).join('')}</div>
+          ${payMethod === 'mixed' ? `<div class="row">
+              <div><label>ยอดโอน (บาท)</label><input id="xfer" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(xferIn)}"></div>
+              <div><label>เงินสดที่ต้องรับ</label><input id="cashDue" readonly placeholder="0.00"></div></div>` : ''}
+          ${payMethod === 'cash' || payMethod === 'mixed' ? `<div class="row">
               <div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(cashIn)}"></div>
               <div><label>เงินทอน</label><input id="change" readonly placeholder="0.00"></div></div>
-            <div class="cashq">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}" type="button">${n.toLocaleString('th-TH')}</button>`).join('')}<button class="chip exact" data-cash="${c.total}" type="button">พอดี</button></div>` : ''}
+            <div class="cashq">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}" type="button">${n.toLocaleString('th-TH')}</button>`).join('')}<button class="chip exact" data-cash="${payMethod === 'cash' ? c.total : ''}" type="button">พอดี</button></div>` : ''}
           ${payMethod === 'transfer' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">โอนเข้าบัญชีร้าน · ตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" เพื่อให้ขึ้น QR ให้ลูกค้าสแกน</p>') : ''}
           ${has || t.status !== 'busy' ? '' : `<button class="voidrow" id="cancelOpen" type="button">${icon('close')}<span>ยกเลิกเปิดโต๊ะ</span>${icon('next')}</button>`}
           ${has && can('void') ? `<button class="voidrow" id="voidTable" type="button">${icon('receipt')}<span>ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</span>${icon('next')}</button>` : ''}
@@ -223,14 +226,18 @@ function renderModal() {
     if (v.trim() && !(n > 0)) return alert('ส่วนลดต้องเป็นตัวเลขมากกว่า 0 (เว้นว่างเพื่อลบส่วนลด)');
     act('discount', { table: t.id, type: v.trim() && n > 0 ? (v.includes('%') ? 'pct' : 'amt') : null, value: n || 0 });
   };
+  // cash still owed: the whole bill, or for mixed what's left after the transfer
+  const cashDue = () => payMethod === 'mixed' ? r2(c.total - (Number($('xfer').value) || 0)) : c.total;
   if ($('cash')) {
     const upd = () => {
       cashIn = $('cash').value;
-      const v = Number(cashIn);
-      $('change').value = cashIn ? (v >= c.total ? baht(v - c.total) : 'เงินไม่พอ') : '';
+      if ($('xfer')) { xferIn = $('xfer').value; $('cashDue').value = xferIn ? (cashDue() > 0 ? baht(cashDue()) : 'ยอดโอนเกิน') : ''; }
+      const v = Number(cashIn), due = cashDue();
+      $('change').value = cashIn ? (v >= due ? baht(v - due) : 'เงินไม่พอ') : '';
     };
     $('cash').oninput = upd;
-    b.querySelectorAll('[data-cash]').forEach(x => x.onclick = () => { $('cash').value = x.dataset.cash; upd(); });
+    if ($('xfer')) $('xfer').oninput = upd;
+    b.querySelectorAll('[data-cash]').forEach(x => x.onclick = () => { $('cash').value = x.dataset.cash || Math.max(0, cashDue()); upd(); });
     upd();
   }
   $('preview').onclick = async () => {
@@ -243,10 +250,12 @@ function renderModal() {
   };
   $('pay').onclick = async () => {
     const cash = $('cash') && $('cash').value ? Number($('cash').value) : null;
-    if (cash !== null && cash < c.total) return alert('รับเงินไม่พอ');
+    const transfer = payMethod === 'mixed' ? Number($('xfer').value) || 0 : null;
+    if (transfer !== null && !(transfer > 0 && transfer < c.total)) return alert('ใส่ยอดโอนมากกว่า 0 และน้อยกว่ายอดสุทธิ (ถ้าโอนทั้งหมด เลือก "โอน")');
+    if (cash !== null && cash < cashDue()) return alert('รับเงินไม่พอ');
     if (pendingQty && !confirm('มีรายการยังไม่ส่งครัว — ชำระต่อเลย?')) return;
-    if (!confirm(`ยืนยันชำระ ${METHODS[payMethod]} ฿${baht(c.total)}${payAt ? ' ลงวันที่ ' + payAt.replace('T', ' ') : ''} และปิดโต๊ะ?`)) return;
-    const d = await act('pay', { table: t.id, method: payMethod, cash, expect: c.total, date: isOwner() ? payAt : '' });
+    if (!confirm(`ยืนยันชำระ ${transfer !== null ? `เงินสด ฿${baht(cashDue())} + โอน ฿${baht(transfer)} รวม` : METHODS[payMethod]} ฿${baht(c.total)}${payAt ? ' ลงวันที่ ' + payAt.replace('T', ' ') : ''} และปิดโต๊ะ?`)) return;
+    const d = await act('pay', { table: t.id, method: payMethod, cash, transfer, expect: c.total, date: isOwner() ? payAt : '' });
     if (d) { closeModal(); toast(`ชำระเงินแล้ว · ปิดโต๊ะ ${t.name}`); printBill(d.bill); } else act('state');
   };
   if ($('cancelOpen')) $('cancelOpen').onclick = async () => { if (await act('cancel_open', { table: t.id })) { closeModal(); toast(`ยกเลิกเปิดโต๊ะ ${t.name} แล้ว`); } };

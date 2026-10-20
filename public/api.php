@@ -44,7 +44,7 @@ function tx(callable $f): mixed {
 }
 
 // upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
-const SCHEMA = 10;
+const SCHEMA = 11;
 if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
     // last request time per user, for "who's online" in the staff list
     if (!q("SHOW COLUMNS FROM users LIKE 'last_seen'")->fetch()) {
@@ -107,6 +107,14 @@ if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColu
     q("UPDATE dining_tables SET status = IF(resv_name IS NULL, 'free', 'resv'), opened_at = NULL, checked_at = NULL, checked_total = NULL
        WHERE status = 'busy' AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.table_id = dining_tables.id)");
     q("UPDATE meta SET v = v + 1 WHERE k = 'ver'");
+    // one bill paid partly in cash and partly by transfer: method 'mixed', transfer_amt = the transferred part
+    if (!str_contains((string)q("SHOW COLUMNS FROM bills LIKE 'method'")->fetch()['Type'], "'mixed'")) {
+        q("ALTER TABLE bills MODIFY method ENUM('cash','qr','transfer','card','other','mixed') NOT NULL");
+    }
+    if (!q("SHOW COLUMNS FROM bills LIKE 'transfer_amt'")->fetch()) {
+        try { q('ALTER TABLE bills ADD COLUMN transfer_amt DECIMAL(10,2) NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = GREATEST(v, VALUES(v))", [SCHEMA]);
 }
 
@@ -208,6 +216,7 @@ function bill_out(array $b): array {
         'items' => array_map(fn($i) => ['name' => $i['name'], 'price' => (float)$i['price'], 'qty' => (int)$i['qty'], 'note' => $i['note']], $items),
         'sub' => (float)$b['sub'], 'disc' => (float)$b['disc'], 'service' => (float)$b['service'], 'vat' => (float)$b['vat'], 'total' => (float)$b['total'],
         'servicePct' => (float)$b['service_pct'], 'vatPct' => (float)$b['vat_pct'], 'method' => $b['method'],
+        'transfer' => $b['transfer_amt'] === null ? null : (float)$b['transfer_amt'],
         'cash' => $b['cash'] === null ? null : (float)$b['cash'], 'change' => $b['change_amt'] === null ? null : (float)$b['change_amt'],
         'void' => (bool)$b['void'], 'cashier' => $b['cashier'] ?? '', 'pax' => $b['pax'] === null ? null : (int)$b['pax'], 'takeaway' => (bool)$b['takeaway']];
 }
@@ -460,16 +469,20 @@ try {
             $items = q('SELECT * FROM order_items WHERE table_id = ? ORDER BY id', [$t['id']])->fetchAll();
             if (!$items) fail('ไม่มีรายการ');
             no_pending((int)$t['id']);
-            $method = in_array($in['method'] ?? '', ['cash', 'transfer', 'other'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
+            $method = in_array($in['method'] ?? '', ['cash', 'transfer', 'other', 'mixed'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
             $s = settings();
             $c = calc($items, $t['disc_type'], $t['disc_value'], $s);
             same_total($in, $c['total']);
-            $cash = isset($in['cash']) && $method === 'cash' ? (money($in['cash']) ?? fail('จำนวนเงินที่รับไม่ถูกต้อง')) : null;
-            if ($cash !== null && $cash < $c['total']) fail('รับเงินไม่พอ');
+            // mixed: part by transfer, the rest in cash
+            $xfer = $method === 'mixed' ? (money($in['transfer'] ?? null, false) ?? fail('ยอดโอนไม่ถูกต้อง')) : null;
+            if ($xfer !== null && $xfer >= $c['total']) fail('ยอดโอนต้องน้อยกว่ายอดสุทธิ (ถ้าโอนทั้งหมด เลือก "โอน")');
+            $due = round($c['total'] - (float)$xfer, 2);
+            $cash = isset($in['cash']) && in_array($method, ['cash', 'mixed'], true) ? (money($in['cash']) ?? fail('จำนวนเงินที่รับไม่ถูกต้อง')) : null;
+            if ($cash !== null && $cash < $due) fail('รับเงินไม่พอ');
             $when = when($in, 'date');
-            q('INSERT INTO bills (bill_no, table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cash, change_amt, cashier_id, pax, takeaway) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            q('INSERT INTO bills (bill_no, table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, transfer_amt, cash, change_amt, cashier_id, pax, takeaway) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 [next_bill_no($when), $t['name'], $when, $c['sub'], $c['disc'], $c['service'], $c['vat'], $c['total'], (float)$s['service'], (float)$s['vat'],
-                 $method, $cash, $cash === null ? null : round($cash - $c['total'], 2), $me['id'], $t['pax'], $t['takeaway']]);
+                 $method, $xfer, $cash, $cash === null ? null : round($cash - $due, 2), $me['id'], $t['pax'], $t['takeaway']]);
             global $pdo;
             $no = (int)$pdo->lastInsertId();
             foreach ($items as $i) q('INSERT INTO bill_items (bill_id, name, price, qty, note, ordered_at) VALUES (?, ?, ?, ?, ?, ?)', [$no, $i['name'], $i['price'], $i['qty'], $i['note'], $i['ordered_at']]);
@@ -673,7 +686,11 @@ try {
         out([
             'from' => $from, 'to' => $to, 'days' => $days,
             'methods' => array_map(fn($r) => ['method' => $r['method'], 'amt' => (float)$r['amt']],
-                q("SELECT method, SUM(total) amt FROM bills WHERE void = 0 AND $range GROUP BY method ORDER BY amt DESC", [$from, $to])->fetchAll()),
+                // a mixed bill counts its cash part under cash and its transfer part under transfer
+                q("SELECT method, SUM(amt) amt FROM (
+                     SELECT IF(method = 'mixed', 'cash', method) method, total - COALESCE(transfer_amt, 0) amt FROM bills WHERE void = 0 AND $range
+                     UNION ALL SELECT 'transfer', transfer_amt FROM bills WHERE void = 0 AND method = 'mixed' AND $range
+                   ) x GROUP BY method ORDER BY amt DESC", [$from, $to, $from, $to])->fetchAll()),
             'voids' => (int)q("SELECT COUNT(*) FROM bills WHERE void = 1 AND $range", [$from, $to])->fetchColumn(),
             'top' => array_map(fn($r) => ['name' => $r['name'], 'qty' => (int)$r['qty'], 'amt' => (float)$r['amt']],
                 q("SELECT i.name, SUM(i.qty) qty, SUM(i.qty * i.price) amt FROM bill_items i JOIN bills b ON b.id = i.bill_id
@@ -718,8 +735,8 @@ try {
         tx(function () use ($in, $method) {
             $b = q('SELECT * FROM bills WHERE id = ? FOR UPDATE', [(int)($in['no'] ?? 0)])->fetch() ?: fail('ไม่พบบิล');
             if ($b['void']) fail('บิลนี้ถูกยกเลิกแล้ว');
-            // cash received / change only mean something for cash
-            q('UPDATE bills SET method = ?, cash = IF(? = \'cash\', cash, NULL), change_amt = IF(? = \'cash\', change_amt, NULL) WHERE id = ?',
+            // cash received / change only mean something for cash (a mixed bill's cash was for its cash part only); SET runs left to right, so method changes last
+            q('UPDATE bills SET cash = IF(? = \'cash\' AND method = \'cash\', cash, NULL), change_amt = IF(? = \'cash\' AND method = \'cash\', change_amt, NULL), transfer_amt = NULL, method = ? WHERE id = ?',
                 [$method, $method, $method, $b['id']]);
         });
         break;

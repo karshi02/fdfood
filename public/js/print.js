@@ -42,6 +42,7 @@ async function printBill(b, isPreview) {
       ${b.vat ? `<tr><td>VAT ${b.vatPct}%</td><td class="r">${baht(b.vat)}</td></tr>` : ''}
       <tr class="big"><td>ยอดสุทธิ</td><td class="r">${baht(b.total)}</td></tr>
       ${!isPreview ? `<tr><td>ชำระโดย</td><td class="r">${METHODS[b.method]}</td></tr>` : ''}
+      ${b.method === 'mixed' ? `<tr><td>โอน</td><td class="r">${baht(b.transfer)}</td></tr><tr><td>เงินสด</td><td class="r">${baht(b.total - b.transfer)}</td></tr>` : ''}
       ${b.cash !== null ? `<tr><td>รับเงิน</td><td class="r">${baht(b.cash)}</td></tr><tr><td>เงินทอน</td><td class="r">${baht(b.change)}</td></tr>` : ''}
     </table>
     ${isPreview && s.promptpay ? `<hr><div class="c">สแกนจ่ายพร้อมเพย์<br>${qrSvg(b.total)}</div>` : ''}
