@@ -11,7 +11,7 @@
 # - a failed smoke test switches the symlink back to the previous release
 set -euo pipefail
 
-SERVER=root@203.170.190.188
+SERVER=${FDFOOD_SERVER:-root@fdfood.monky-go.com}
 DIR=/root/fdfood
 
 cd "$(dirname "$0")"
@@ -23,7 +23,9 @@ git archive --format=tar.gz -o "$TGZ" origin/main Dockerfile docker-compose.prod
 scp -q "$TGZ" "$SERVER:/root/fd-$H.tgz"
 rm -f "$TGZ"
 
-ssh -o BatchMode=yes "$SERVER" H="$H" DIR="$DIR" bash -s <<'REMOTE'
+# The remote script is passed as an argument, not on stdin: docker compose exec (in backup.sh)
+# reads stdin and would otherwise swallow the rest of the script.
+REMOTE=$(cat <<'REMOTE'
 set -euo pipefail
 cd "$DIR"
 exec 9>"$DIR/.deploy.lock"
@@ -88,3 +90,5 @@ done
 $C ps --format '{{.Name}} {{.Status}}'
 echo "OK $H live"
 REMOTE
+)
+ssh -o BatchMode=yes "$SERVER" "H=$H DIR=$DIR bash -c $(printf %q "$REMOTE")" < /dev/null
