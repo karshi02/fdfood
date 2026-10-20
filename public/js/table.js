@@ -9,10 +9,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) close
 function renderModal() {
   const t = S.tables.find(x => x.id === cur);
   if (!t) return closeModal();
-  $('mdTitle').textContent = `โต๊ะ ${t.name}`;
-  $('mdTools').innerHTML = (t.status === 'busy' ? '<button class="btn ghost sm" id="move">ย้าย / รวมโต๊ะ</button>' : '')
-    + '<button class="btn ghost sm" id="mdClose">ปิด ✕</button>';
+  const stLabel = t.status === 'free' ? 'ว่าง' : t.status === 'resv' ? 'จองไว้' : t.checked ? 'รอชำระ' : 'กำลังทาน';
+  const stCls = t.status === 'busy' && t.checked ? 'checked' : t.status;
+  $('mdTitle').innerHTML = `<button class="mback" id="mdBack" type="button" title="กลับ">${icon('back')}</button>
+    ${icon('table', 'mtico')}<span class="mtt"><b>โต๊ะ ${esc(t.name)}</b><small class="mstat ${stCls}"><i></i>${stLabel}</small></span>`;
+  $('mdTools').innerHTML = (t.status === 'busy' ? `<button class="mtool" id="move" type="button">${icon('swap')}<span>ย้าย / รวมโต๊ะ</span></button>` : '')
+    + `<button class="mtool close" id="mdClose" type="button">${icon('close')}<span>ปิด</span></button>`;
   $('mdClose').onclick = closeModal;
+  $('mdBack').onclick = closeModal;
   if ($('move')) $('move').onclick = () => moveTable(t);
   const b = $('mdBody');
 
@@ -42,10 +46,19 @@ function renderModal() {
   const pendingQty = t.order.reduce((a, i) => a + Math.max(0, i.qty - i.sent), 0);
   const has = t.order.length > 0;
   const ids = waitIds(), wait = hasWait(t, ids), billable = has && !wait;
-  b.innerHTML = `<div class="split">
-    <div class="card">
-      <div class="sheet-head" style="margin-bottom:8px"><h2 style="margin:0">เมนู (กดเพื่อสั่ง)</h2>
-        <button class="btn sm" id="qaToggle">+ เมนูใหม่</button></div>
+  const itemsN = t.order.reduce((a, i) => a + i.qty, 0);
+  const catOf = id => { const m = S.menu.find(x => x.id === id); return m ? m.cat : ''; };
+  // menu photo when the dish has one, else a big category icon on a dark plate
+  const thumb = (img, cat, cls) => img
+    ? `<span class="${cls} photo"><img src="${esc(img)}" alt="" loading="lazy"></span>`
+    : `<span class="${cls}">${icon(catIcon(cat))}</span>`;
+  const MICON = { cash: 'bill', qr: 'qr', transfer: 'swap', card: 'card' };
+  b.innerHTML = `<div class="split osheet">
+    <div class="mpane">
+      <div class="msearch">
+        <label class="sbox">${icon('search')}<input id="search" placeholder="ค้นหาเมนู..." autocomplete="off"></label>
+        <button class="btn gold" id="qaToggle" type="button">${icon('plus')}<span>เมนูใหม่</span></button>
+      </div>
       <div id="qa" class="qa hidden">
         <div class="row">
           <div><label>ชื่อเมนู</label><input id="qaName"></div>
@@ -54,46 +67,67 @@ function renderModal() {
         </div>
         <div class="actions"><button class="btn brand sm" id="qaOrder">บันทึก + สั่งเลย</button><button class="btn ghost sm" id="qaOnly">บันทึกเมนูอย่างเดียว</button></div>
       </div>
-      <input id="search" placeholder="ค้นหาเมนู..." style="margin-bottom:10px">
-      <div class="cats scroll">${['', ...cats()].map(k => `<button class="chip ${k === curCat ? 'on' : ''}" data-cat="${esc(k)}">${esc(k || 'ทั้งหมด')}</button>`).join('')}</div>
-      <div class="menu-grid" id="mGrid">${list.map(m => `<button class="mi" data-add="${m.id}" data-n="${esc(m.name.toLowerCase())}" ${m.out ? 'disabled style="opacity:.45"' : ''}>${esc(m.name)}<span>${m.out ? 'หมด' : '฿' + baht(m.price)}</span></button>`).join('') || '<p class="muted">ไม่มีเมนู</p>'}</div>
+      <div class="ctiles">${['', ...cats()].map(k => `<button class="ctile ${k === curCat ? 'on' : ''}" data-cat="${esc(k)}" type="button">${icon(k ? catIcon(k) : 'cloche')}<span>${esc(k || 'ทั้งหมด')}</span></button>`).join('')}</div>
+      <div class="menu-grid photo" id="mGrid">${list.map(m => `<button class="mi${m.out ? ' out' : ''}" data-add="${m.id}" data-n="${esc(m.name.toLowerCase())}" type="button" ${m.out ? 'disabled' : ''}>
+          ${thumb(m.image, m.cat, 'mimg')}
+          <span class="mtext"><span class="mname">${esc(m.name)}</span><b>${m.out ? 'หมด' : '฿' + baht(m.price)}</b></span>
+          <span class="madd">${icon('plus')}</span>
+        </button>`).join('') || '<p class="mempty">ไม่มีเมนู</p>'}</div>
     </div>
-    <div class="card order" id="orderCard">
-      <h2>รายการที่สั่ง ${t.resv && t.resv.name ? `<span class="muted">· ${esc(t.resv.name)}</span>` : ''}</h2>
-      <table class="list"><tbody>${t.order.map(i => `<tr>
-        <td>${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}${ids.has(i.menuId)
-          ? `<span class="tag wait">รออนุมัติราคา</span>${can('menu') ? ` <button class="note" data-ok="${i.menuId}">อนุมัติ</button>` : ''}` : ''}
-          <div class="muted">฿${baht(i.price)} · <button class="note" data-note="${i.id}">${i.note ? esc(i.note) : '+ หมายเหตุ'}</button></div></td>
-        <td><span class="qty"><button data-q="${i.id}" data-d="-1">−</button>${i.qty}<button data-q="${i.id}" data-d="1">+</button></span></td>
-        <td class="num">${baht(i.price * i.qty)}</td></tr>`).join('') || '<tr><td class="muted">ยังไม่มีรายการ</td></tr>'}</tbody></table>
-      <div class="actions"><button class="btn ok sm" id="kitchen" ${pendingQty ? '' : 'disabled'}>ส่งครัว (${pendingQty})</button>
-        ${can('discount') ? `<button class="btn ghost sm" id="disc" ${has ? '' : 'disabled'}>${t.discount ? 'แก้ส่วนลด' : 'ส่วนลด'}</button>` : ''}</div>
-      <div style="margin-top:10px">
-        <div class="line"><span>รวม</span><span>${baht(c.sub)}</span></div>
-        ${c.disc ? `<div class="line"><span>ส่วนลด${t.discount.type === 'pct' ? ' ' + t.discount.value + '%' : ''}</span><span>-${baht(c.disc)}</span></div>` : ''}
-        ${c.service ? `<div class="line"><span>Service ${S.settings.service}%</span><span>${baht(c.service)}</span></div>` : ''}
-        ${c.vat ? `<div class="line"><span>VAT ${S.settings.vat}%</span><span>${baht(c.vat)}</span></div>` : ''}
-        <div class="total"><span>ยอดสุทธิ</span><span>฿${baht(c.total)}</span></div>
-        ${wait ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">มีเมนูใหม่รออนุมัติราคา — ${can('menu') ? 'กด "อนุมัติ" ที่รายการ' : 'ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ'} ก่อนเช็คบิล/ชำระเงิน</p>` : ''}
-      </div>
-      ${t.checked ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">${sameTotal(t)
-        ? `เช็คบิลแล้ว ${toDate(t.checked.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} · รอชำระ`
-        : `ยอดเปลี่ยนจากตอนเช็คบิล (฿${baht(t.checked.total)}) — กดเช็คบิลพิมพ์ใหม่`}</p>` : ''}
-      <div class="cats">${Object.entries(METHODS).map(([k, v]) => `<button class="chip ${k === payMethod ? 'on' : ''}" data-m="${k}">${v}</button>`).join('')}</div>
-      ${payMethod === 'cash' ? `<div class="row"><div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" value="${esc(cashIn)}"></div>
-        <div><label>เงินทอน</label><input id="change" readonly></div></div>
-        <div class="actions" style="margin-top:6px">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}">${n}</button>`).join('')}<button class="chip" data-cash="${c.total}">พอดี</button></div>` : ''}
-      ${payMethod === 'qr' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">ให้แอดมินตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" ก่อน</p>') : ''}
-      ${!has || can('void') ? `<div class="actions">
-        ${has ? '' : '<button class="btn danger" id="cancelOpen">ยกเลิกเปิดโต๊ะ</button>'}
-        ${has && can('void') ? '<button class="btn danger" id="voidTable">ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</button>' : ''}
-      </div>` : ''}
-      <div class="actions paybar">
-        <button class="btn ok lg" id="pay" ${billable ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
-        <button class="btn warn" style="flex:1" id="preview" ${billable ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
+    <div class="opane" id="orderCard">
+      <section class="osec">
+        <div class="osec-h">${icon('cart')}<span>รายการที่สั่ง</span>${t.resv && t.resv.name ? `<small>${esc(t.resv.name)}</small>` : ''}</div>
+        <div class="osec-b">
+          ${t.order.map(i => `<div class="oi">
+            ${thumb(null, catOf(i.menuId), 'oimg')}
+            <div class="oinfo">
+              <div class="oname">${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}${ids.has(i.menuId)
+                ? `<span class="tag wait">รออนุมัติราคา</span>${can('menu') ? ` <button class="note" data-ok="${i.menuId}">อนุมัติ</button>` : ''}` : ''}</div>
+              <div class="oprice">฿${baht(i.price)}</div>
+              <button class="note" data-note="${i.id}">${icon('edit')}${i.note ? esc(i.note) : '+ หมายเหตุ'}</button>
+            </div>
+            <div class="oqty"><button data-q="${i.id}" data-d="-1" aria-label="ลด">${icon('minus')}</button><span>${i.qty}</span><button data-q="${i.id}" data-d="1" aria-label="เพิ่ม">${icon('plus')}</button></div>
+            <b class="osum">฿${baht(i.price * i.qty)}</b>
+          </div>`).join('') || '<p class="oempty">ยังไม่มีรายการ — กดเมนูเพื่อสั่ง</p>'}
+          <div class="oacts">
+            <button class="btn ok" id="kitchen" ${pendingQty ? '' : 'disabled'}>${icon('cloche')}<span>ส่งครัว (${pendingQty})</span></button>
+            ${can('discount') ? `<button class="btn soft" id="disc" ${has ? '' : 'disabled'}>${icon('percent')}<span>${t.discount ? 'แก้ส่วนลด' : 'ส่วนลด'}</span></button>` : ''}
+          </div>
+          <div class="osubs">
+            <div class="line"><span>รวมรายการ (${itemsN})</span><span>฿${baht(c.sub)}</span></div>
+            ${c.disc ? `<div class="line"><span>ส่วนลด${t.discount.type === 'pct' ? ' ' + t.discount.value + '%' : ''}</span><span>-฿${baht(c.disc)}</span></div>` : ''}
+            ${c.service ? `<div class="line"><span>Service ${S.settings.service}%</span><span>฿${baht(c.service)}</span></div>` : ''}
+            ${c.vat ? `<div class="line"><span>VAT ${S.settings.vat}%</span><span>฿${baht(c.vat)}</span></div>` : ''}
+          </div>
+          ${wait ? `<p class="onote">มีเมนูใหม่รออนุมัติราคา — ${can('menu') ? 'กด "อนุมัติ" ที่รายการ' : 'ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ'} ก่อนเช็คบิล/ชำระเงิน</p>` : ''}
+          ${t.checked ? `<p class="onote">${sameTotal(t)
+            ? `เช็คบิลแล้ว ${toDate(t.checked.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} · รอชำระ`
+            : `ยอดเปลี่ยนจากตอนเช็คบิล (฿${baht(t.checked.total)}) — กดเช็คบิลพิมพ์ใหม่`}</p>` : ''}
+        </div>
+      </section>
+
+      <div class="ototal">${icon('coins')}<span>ยอดสุทธิ</span><b>฿${baht(c.total)}</b></div>
+
+      <section class="osec">
+        <div class="osec-h">${icon('wallet')}<span>ช่องทางการชำระเงิน</span></div>
+        <div class="osec-b">
+          <div class="ptiles">${Object.entries(METHODS).map(([k, v]) => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k] || 'bill')}<span>${v}</span></button>`).join('')}</div>
+          ${payMethod === 'cash' ? `<div class="row">
+              <div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(cashIn)}"></div>
+              <div><label>เงินทอน</label><input id="change" readonly placeholder="0.00"></div></div>
+            <div class="cashq">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}" type="button">${n.toLocaleString('th-TH')}</button>`).join('')}<button class="chip exact" data-cash="${c.total}" type="button">พอดี</button></div>` : ''}
+          ${payMethod === 'qr' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">ให้แอดมินตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" ก่อน</p>') : ''}
+          ${has ? '' : `<button class="voidrow" id="cancelOpen" type="button">${icon('close')}<span>ยกเลิกเปิดโต๊ะ</span>${icon('next')}</button>`}
+          ${has && can('void') ? `<button class="voidrow" id="voidTable" type="button">${icon('receipt')}<span>ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</span>${icon('next')}</button>` : ''}
+        </div>
+      </section>
+
+      <div class="paybar">
+        <button class="btn ok lg" id="pay" ${billable ? '' : 'disabled'}>${icon('printer')}<span>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</span></button>
+        <button class="btn gold lg" id="preview" ${billable ? '' : 'disabled'}>${icon('printer')}<span>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</span></button>
       </div>
     </div></div>
-    <button class="btn brand jump" id="jump"><span>ดูรายการ / ชำระเงิน (${t.order.reduce((a, i) => a + i.qty, 0)})</span><span>฿${baht(c.total)}</span></button>`;
+    <button class="jump" id="jump" type="button">${icon('cart')}<span class="jl">ดูรายการ / ชำระเงิน (${itemsN})</span><b>฿${baht(c.total)}</b><span class="jgo">${icon('next')}</span></button>`;
   $('jump').onclick = () => $('orderCard').scrollIntoView({ behavior: 'smooth' });
   // phone: hide the floating "view order" bar once the order card (with its own floating pay bar) is on screen
   if ('IntersectionObserver' in window) {
