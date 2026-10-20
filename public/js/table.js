@@ -47,7 +47,7 @@ function renderModal() {
   const has = t.order.length > 0;
   const ids = waitIds(), wait = hasWait(t, ids), billable = has && !wait;
   const itemsN = t.order.reduce((a, i) => a + i.qty, 0);
-  const catOf = id => { const m = S.menu.find(x => x.id === id); return m ? m.cat : ''; };
+  const catOf = (id, name) => { const m = S.menu.find(x => x.id === id); return (m ? m.cat : '') + ' ' + name; };
   // menu photo when the dish has one, else a big category icon on a dark plate
   const thumb = (img, cat, cls) => img
     ? `<span class="${cls} photo"><img src="${esc(img)}" alt="" loading="lazy"></span>`
@@ -69,7 +69,7 @@ function renderModal() {
       </div>
       <div class="ctiles">${['', ...cats()].map(k => `<button class="ctile ${k === curCat ? 'on' : ''}" data-cat="${esc(k)}" type="button">${icon(k ? catIcon(k) : 'cloche')}<span>${esc(k || 'ทั้งหมด')}</span></button>`).join('')}</div>
       <div class="menu-grid photo" id="mGrid">${list.map(m => `<button class="mi${m.out ? ' out' : ''}" data-add="${m.id}" data-n="${esc(m.name.toLowerCase())}" type="button" ${m.out ? 'disabled' : ''}>
-          ${thumb(m.image, m.cat, 'mimg')}
+          ${thumb(m.image, m.cat + ' ' + m.name, 'mimg')}
           <span class="mtext"><span class="mname">${esc(m.name)}</span><b>${m.out ? 'หมด' : '฿' + baht(m.price)}</b></span>
           <span class="madd">${icon('plus')}</span>
         </button>`).join('') || '<p class="mempty">ไม่มีเมนู</p>'}</div>
@@ -79,7 +79,7 @@ function renderModal() {
         <div class="osec-h">${icon('cart')}<span>รายการที่สั่ง</span>${t.resv && t.resv.name ? `<small>${esc(t.resv.name)}</small>` : ''}</div>
         <div class="osec-b">
           ${t.order.map(i => `<div class="oi">
-            ${thumb(null, catOf(i.menuId), 'oimg')}
+            ${thumb(null, catOf(i.menuId, i.name), 'oimg')}
             <div class="oinfo">
               <div class="oname">${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}${ids.has(i.menuId)
                 ? `<span class="tag wait">รออนุมัติราคา</span>${can('menu') ? ` <button class="note" data-ok="${i.menuId}">อนุมัติ</button>` : ''}` : ''}</div>

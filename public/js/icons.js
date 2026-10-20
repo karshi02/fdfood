@@ -44,15 +44,15 @@ const ICON_PATHS = {
 // best icon for a menu category name (categories are free text typed by the owner)
 const catIcon = cat => {
   const c = String(cat || '');
-  if (!c) return 'cloche';
+  if (!c.trim()) return 'cloche';
   if (/เครื่องดื่ม|น้ำ|เบียร์|ชา|กาแฟ|โซดา/.test(c)) return 'drink';
   if (/วัว|โคขุน/.test(c)) return 'cow';
-  if (/หมู/.test(c)) return 'pig';
+  if (/หมู|สามชั้น|เบคอน/.test(c)) return 'pig';
   if (/ผัก|ยำ|ส้มตำ|อีสาน/.test(c)) return 'leaf';
   if (/ทะเล|กุ้ง|ปลา|หมึก/.test(c)) return 'fish';
   if (/หวาน|ไอศกรีม/.test(c)) return 'sweet';
-  if (/เนื้อ|ย่าง|ปิ้ง|steak/i.test(c)) return 'steak';
-  if (/ชุด|เซ็ต|set/i.test(c)) return 'cloche';
+  if (/เนื้อ|ย่าง|ปิ้ง|steak|ริบอาย|ใบพาย|น่อง|สัน|เสือ|เต้า|ลิ้น/i.test(c)) return 'steak';
+  if (/ชุด|เซ็ต|set|รวม/i.test(c)) return 'cloche';
   return 'dots';
 };
 const icon = (name, cls = '') =>
