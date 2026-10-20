@@ -7,7 +7,8 @@ CREATE TABLE users (
   name VARCHAR(100) NOT NULL,
   role ENUM('admin','staff') NOT NULL DEFAULT 'staff',
   perms VARCHAR(200) NOT NULL DEFAULT '',
-  active TINYINT(1) NOT NULL DEFAULT 1
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  last_seen DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE settings (

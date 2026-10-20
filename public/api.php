@@ -39,8 +39,13 @@ function tx(callable $f): mixed {
 }
 
 // upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
-const SCHEMA = 7;
+const SCHEMA = 8;
 if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
+    // last request time per user, for "who's online" in the staff list
+    if (!q("SHOW COLUMNS FROM users LIKE 'last_seen'")->fetch()) {
+        try { q('ALTER TABLE users ADD COLUMN last_seen DATETIME NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
     // payment is now cash / transfer / other; qr and card stay valid so older bills keep their method
     if (!str_contains((string)q("SHOW COLUMNS FROM bills LIKE 'method'")->fetch()['Type'], "'other'")) {
         q("ALTER TABLE bills MODIFY method ENUM('cash','qr','transfer','card','other') NOT NULL");
@@ -108,6 +113,8 @@ if (isset($_SESSION['uid'])) {
         if ($_SESSION['ph'] !== $tag) { $_SESSION = []; $me = null; }
     }
     if ($me) { $me['id'] = (int)$me['id']; $me['perms'] = perms_of($me); $me['weak'] = !empty($_SESSION['weak']); }
+    // every open screen polls every 3 s; write at most once a minute per user
+    if ($me) q('UPDATE users SET last_seen = NOW() WHERE id = ? AND (last_seen IS NULL OR last_seen < NOW() - INTERVAL 60 SECOND)', [$me['id']]);
 }
 function can(string $perm): bool { global $me; return $me && in_array($perm, $me['perms'], true); }
 function need(string $perm = ''): void {
@@ -254,6 +261,7 @@ try {
         $me = ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'perms' => perms_of($u), 'weak' => $_SESSION['weak']];
         out(state());
     case 'logout':
+        if ($me) q('UPDATE users SET last_seen = NULL WHERE id = ?', [$me['id']]); // show offline right away
         session_destroy();
         out(['me' => null]);
     case 'password':
@@ -632,8 +640,10 @@ try {
         break;
     case 'users':
         need('users');
-        out(['users' => array_map(fn($u) => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'perms' => perms_of($u)],
-            q('SELECT id, username, name, role, perms FROM users WHERE active = 1 ORDER BY role, id')->fetchAll())]);
+        // ago = seconds since the user's last request (null = signed out / never), measured on the DB clock
+        out(['users' => array_map(fn($u) => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'perms' => perms_of($u),
+                'seen' => $u['last_seen'], 'ago' => $u['ago'] === null ? null : (int)$u['ago']],
+            q('SELECT id, username, name, role, perms, last_seen, TIMESTAMPDIFF(SECOND, last_seen, NOW()) AS ago FROM users WHERE active = 1 ORDER BY role, id')->fetchAll())]);
     case 'user_save':
         need('users');
         $id = (int)($in['id'] ?? 0);

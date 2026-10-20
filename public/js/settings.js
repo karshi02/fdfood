@@ -53,11 +53,29 @@ function renderPermForm(role, perms) {
 }
 const checkedPerms = () => [...$('uPerms').querySelectorAll('input:checked')].map(c => c.value);
 
+// online = a request in the last 120 s (screens poll every 3 s, the server records it at most once a minute)
+function onlineHtml(u) {
+  const dot = c => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:4px"></span>`;
+  if (u.ago !== null && u.ago < 120) return `${dot('#22a35a')}ออนไลน์`;
+  if (u.seen === null) return `${dot('#9a9a9a')}ออฟไลน์`;
+  const d = toDate(u.seen), today = dayKey(d) === dayKey(Date.now());
+  return `${dot('#9a9a9a')}ล่าสุด ${today ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' '}${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
+}
+// keep the online dots fresh while the staff list is on screen; quiet on errors (no alert from a background poll)
+setInterval(async () => {
+  if (!ME || !can('users') || $('tab-settings').classList.contains('hidden')) return;
+  try {
+    const d = await (await fetch('api.php?a=users')).json();
+    (d.users || []).forEach(u => { const el = $('userBody').querySelector(`[data-on="${u.id}"]`); if (el) el.innerHTML = onlineHtml(u); });
+  } catch {}
+}, 30000);
+
 async function loadUsers() {
   const d = await act('users'); if (!d) return;
   users = d.users;
   if (!$('uId').value) renderPermForm(uRole, uRole === 'admin' ? [] : checkedPerms());
-  $('userBody').innerHTML = users.map(u => `<tr><td>${esc(u.name)} <span class="muted">@${esc(u.username)}</span></td>
+  $('userBody').innerHTML = users.map(u => `<tr><td>${esc(u.name)} <span class="muted">@${esc(u.username)}</span>
+    <div class="muted" data-on="${u.id}">${onlineHtml(u)}</div></td>
     <td><span class="role">${u.role === 'admin' ? 'เจ้าของร้าน' : 'พนักงาน'}</span><div class="muted">${esc(permNames(u))}</div></td>
     <td class="num" style="white-space:nowrap">${manageable(u) ? `<button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>` : ''}
     ${u.id !== ME.id && manageable(u) ? `<button class="btn danger sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
