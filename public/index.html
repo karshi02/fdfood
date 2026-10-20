@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="css/sheet.css">
 <link rel="stylesheet" href="css/press.css">
 <link rel="stylesheet" href="css/calendar.css">
+<link rel="stylesheet" href="css/dash.css">
 </head>
 <body>
 <div id="login" class="hidden">
@@ -107,11 +108,13 @@
   </section>
 
   <section id="tab-dash" class="hidden">
+    <div class="dhero" id="dHero"></div>
     <div class="rbar">
       <button class="datebtn" id="dRange" type="button"><span data-ic="calendar"></span><span><small>ช่วงวันที่</small><span id="dRangeTxt"></span></span></button>
       <input type="hidden" id="dFrom"><input type="hidden" id="dTo">
     </div>
-    <div class="stats" id="dStats"></div>
+    <div class="dsum" id="dSum"></div>
+    <div class="dmini" id="dStats"></div>
     <div class="card">
       <div class="sheet-head"><h2 style="margin:0">รายรับ / รายจ่าย รายวัน</h2>
         <div class="legend"><span><i style="background:var(--inc)"></i>รายรับ</span><span><i style="background:var(--exp)"></i>รายจ่าย</span></div></div>
@@ -119,7 +122,7 @@
     </div>
     <div class="split">
       <div class="card">
-        <h2>บันทึกรายจ่าย</h2>
+        <h2 id="expTitle">บันทึกรายจ่าย</h2>
         <form id="expForm" class="row">
           <input type="hidden" id="eId">
           <div><label>วันที่</label><button type="button" class="calfield" id="eDate" value=""><span data-ic="calendar"></span><span>เลือกวันที่</span></button></div>
@@ -142,7 +145,7 @@
       </div>
     </div>
     <div class="card">
-      <h2>สรุปรายวัน</h2>
+      <h2 id="daysTitle">สรุปรายวัน</h2>
       <div class="scroll-x"><table class="list"><thead><tr><th>วันที่</th><th class="num">บิล</th><th class="num">รายรับ</th><th class="num">รายจ่าย</th><th class="num">กำไร</th></tr></thead><tbody id="dDays"></tbody></table></div>
     </div>
   </section>

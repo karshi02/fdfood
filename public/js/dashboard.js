@@ -32,12 +32,10 @@ function renderDash() {
   const days = dashDays();
   const sum = f => days.reduce((a, x) => a + x[f], 0);
   const inc = sum('income'), exp = sum('expense'), n = sum('n'), net = inc - exp;
-  $('dStats').innerHTML = `
-    <div class="stat"><span class="muted">รายรับ (ยอดขายสุทธิ)</span><b>฿${baht(inc)}</b><small>เฉลี่ย ฿${baht(inc / days.length)}/วัน</small></div>
-    <div class="stat"><span class="muted">รายจ่าย</span><b>฿${baht(exp)}</b><small>${dash.expenses.length} รายการ</small></div>
-    <div class="stat ${net >= 0 ? 'good' : 'bad'}"><span class="muted">กำไรสุทธิ</span><b>${net < 0 ? '-' : ''}฿${baht(Math.abs(net))}</b><small>${inc ? `อัตรากำไร ${(net / inc * 100).toFixed(1)}%` : '&nbsp;'}</small></div>
-    <div class="stat"><span class="muted">จำนวนบิล</span><b>${n}</b><small>ยกเลิก ${dash.voids} บิล</small></div>
-    <div class="stat"><span class="muted">เฉลี่ย/บิล</span><b>฿${baht(n ? inc / n : 0)}</b><small>ส่วนลดรวม ฿${baht(sum('disc'))}</small></div>`;
+  renderDashTop(inc, exp, net);
+  $('dStats').innerHTML = [['จำนวนบิล', n], ['ยกเลิก', dash.voids + ' บิล'], ['เฉลี่ย/บิล', '฿' + baht(n ? inc / n : 0)],
+    ['เฉลี่ย/วัน', '฿' + baht(inc / days.length)], ['ส่วนลดรวม', '฿' + baht(sum('disc'))]]
+    .map(([k, v]) => `<span><small>${k}</small><b>${v}</b></span>`).join('');
   renderDashChart(days);
 
   const bars = (rows, color) => {
@@ -120,3 +118,47 @@ $('expForm').onsubmit = async e => {
   }
 };
 $('eCancel').onclick = resetExpForm;
+
+// top of the dashboard: greeting + what's open right now, then the period's money in one card
+// "ซ่อน" blurs the amounts (e.g. a customer looking at the screen); remembered on this device
+let dashHide = false;
+try { dashHide = localStorage.getItem('dashHide') === '1'; } catch {}
+// whole baht without ".00", otherwise always two decimals
+const money0 = v => { const d = Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2; return Number(v).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d }); };
+function renderDashTop(inc, exp, net) {
+  const h = new Date().getHours();
+  const hi = h < 12 ? 'สวัสดีตอนเช้า' : h < 17 ? 'สวัสดีตอนบ่าย' : h < 19 ? 'สวัสดีตอนเย็น' : 'สวัสดีตอนค่ำ';
+  const busy = S.tables.filter(t => t.status === 'busy'), resv = S.tables.filter(t => t.status === 'resv').length;
+  const due = busy.reduce((a, t) => a + calc(t.order, t.discount).total, 0);
+  const now = !busy.length && !resv ? 'ตอนนี้ไม่มีโต๊ะค้าง — สบาย ๆ'
+    : [busy.length && `มีลูกค้า ${busy.length} โต๊ะ`, resv && `จองไว้ ${resv} โต๊ะ`].filter(Boolean).join(' · ');
+  $('dHero').innerHTML = `<div class="dh-top"><b class="dh-hi">${hi} ${esc(ME.name)} <span aria-hidden="true">👋</span></b>
+      <span class="dh-date">${new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
+    <button class="dh-now" type="button" data-go="tables"><span class="dh-ic">${icon('clock')}</span>
+      <span><small>โต๊ะตอนนี้</small><b>${now}</b></span>${icon('next')}</button>`;
+  const paidPct = inc + due > 0 ? Math.round(inc / (inc + due) * 100) : 100;
+  const tile = (cls, ic, label, v, sub, go) => `<button class="dt ${cls}" type="button" data-go="${go}"><span class="dt-ic">${icon(ic)}</span>
+    <span class="dt-l">${label}</span><b class="dt-v money">${v}</b><small>${sub}</small>${icon('next', 'dt-go')}</button>`;
+  $('dSum').innerHTML = `<div class="ds-head">${icon('dollar')}<b>ยอดขาย<small>${esc(thRange(dash.from, dash.to))}</small></b>
+      <button class="ds-hide" type="button" id="dHide">${icon(dashHide ? 'eye' : 'eyeoff')}<span>${dashHide ? 'แสดง' : 'ซ่อน'}</span></button></div>
+    <button class="ds-big" type="button" data-go="report"><b class="money">${money0(inc)}</b><span>บาท</span>${icon('next')}</button>
+    <div class="ds-paid"><span>เก็บเงินได้แล้ว</span><b>${paidPct}%</b></div>
+    <div class="ds-bar"><span style="width:${paidPct}%"></span></div>
+    <div class="ds-tiles">
+      ${tile('ok', 'check', 'รับเงินแล้ว', money0(inc), 'บาท', 'report')}
+      ${tile('bad', 'receipt', 'รายจ่าย', money0(exp), `${dash.expenses.length} รายการ`, 'exp')}
+      ${tile('due', 'clock', 'ค้างรับ', money0(due), `${busy.length} โต๊ะที่เปิดอยู่`, 'tables')}
+      ${tile(net < 0 ? 'bad' : 'ok', 'trend', 'กำไรสุทธิ', (net < 0 ? '-' : '') + money0(Math.abs(net)), inc ? `อัตรากำไร ${(net / inc * 100).toFixed(1)}%` : 'บาท', 'days')}
+    </div>`;
+  $('tab-dash').classList.toggle('hidemoney', dashHide);
+  $('dHide').onclick = () => { dashHide = !dashHide; try { localStorage.setItem('dashHide', dashHide ? '1' : '0'); } catch {} renderDashTop(inc, exp, net); };
+  // tiles jump to the tab or the card that explains the number
+  $('tab-dash').querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+    const g = b.dataset.go;
+    if (g === 'tables' || g === 'report') {
+      if (g === 'report') { rPicked = !(dash.from === dash.to && dash.to === dayKey(Date.now())); setRange(dash.from, dash.to); }
+      return showTab(g);
+    }
+    $(g === 'exp' ? 'expTitle' : 'daysTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}

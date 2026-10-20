@@ -1,0 +1,57 @@
+/* dashboard top: greeting card + the period's money card (dashboard.js renderDashTop) */
+.dhero { background: linear-gradient(135deg, #5c0d17, #8e1a2a 60%, #a3132f); color: #fff; border-radius: 22px; overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .3); margin-bottom: 14px; border: 1px solid rgba(255, 220, 170, .14); }
+.dh-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 18px 14px; }
+.dh-hi { font-size: 22px; line-height: 1.25; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-date { flex: 0 0 auto; background: rgba(255, 255, 255, .14); border-radius: 99px; padding: 6px 14px; font-size: 15px; }
+.dh-now { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 18px; border: 0; border-top: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(0, 0, 0, .12); color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.dh-now > span:nth-child(2) { flex: 1; min-width: 0; }
+.dh-now small { display: block; font-size: 13px; color: rgba(255, 255, 255, .7); letter-spacing: .02em; }
+.dh-now b { font-size: 17px; }
+.dh-ic { width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .14); display: grid; place-items: center; flex: 0 0 auto; }
+.dh-ic .ic { width: 24px; height: 24px; }
+.dh-now > .ic { width: 20px; height: 20px; opacity: .7; }
+
+.dsum { border-radius: 26px; overflow: hidden; margin-bottom: 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, .3);
+  background: linear-gradient(160deg, #5c0d17, #7c1424 45%, #b23a4e); color: #fff; border: 1px solid rgba(255, 220, 170, .14); }
+.ds-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 0; font-size: 18px; }
+.ds-head > .ic { width: 26px; height: 26px; flex: 0 0 auto; }
+.ds-head > b { flex: 1; min-width: 0; }
+.ds-head > b small { display: block; font-size: 13px; font-weight: 500; opacity: .75; }
+.ds-hide { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 99px; padding: 8px 14px; background: rgba(255, 255, 255, .14);
+  color: #fff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
+.ds-hide .ic { width: 20px; height: 20px; }
+.ds-big { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 6px 18px 0; border: 0; background: none; color: #fff; font: inherit; cursor: pointer; text-align: left; }
+.ds-big b { font-size: clamp(40px, 13vw, 64px); font-weight: 800; line-height: 1.1; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.ds-big span { font-size: 24px; font-weight: 600; opacity: .85; }
+.ds-big .ic { width: 26px; height: 26px; margin-left: auto; align-self: center; opacity: .7; }
+.ds-paid { display: flex; justify-content: space-between; padding: 14px 18px 8px; font-size: 17px; }
+.ds-paid b { font-size: 20px; }
+.ds-bar { height: 12px; margin: 0 18px 18px; border-radius: 99px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.ds-bar span { display: block; height: 100%; border-radius: inherit; background: #fff; }
+.ds-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); }
+.dt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 6px 14px; border: 0; background: var(--card);
+  color: var(--ink); font: inherit; cursor: pointer; text-align: center; min-width: 0; }
+.dt:active { background: var(--brand-soft); }
+.dt-ic { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 2px; }
+.dt-ic .ic { width: 24px; height: 24px; }
+.dt-l { font-size: 15px; font-weight: 600; }
+.dt-v { font-size: clamp(16px, 4.6vw, 22px); font-weight: 800; font-variant-numeric: tabular-nums; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.dt small { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.dt-go { position: absolute; top: 10px; right: 8px; width: 14px; height: 14px; color: var(--muted); }
+.dt.ok .dt-ic { background: #dcfce7; color: var(--free); } .dt.ok .dt-v { color: var(--free); }
+.dt.bad .dt-ic { background: var(--danger-soft-2); color: var(--danger); } .dt.bad .dt-v { color: var(--danger); }
+.dt.due .dt-ic { background: #fde8e8; color: var(--brand); } .dt.due .dt-v { color: var(--brand); }
+
+.dmini { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.dmini span { flex: 1 1 110px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; }
+.dmini small { display: block; font-size: 12px; color: var(--muted); }
+.dmini b { font-size: 17px; font-variant-numeric: tabular-nums; }
+
+/* "ซ่อน": blur every amount on the dashboard */
+.hidemoney .money, .hidemoney .dmini b, .hidemoney .chart, .hidemoney #dDays, .hidemoney #dTop, .hidemoney #dMethods, .hidemoney #dExpCats { filter: blur(9px); user-select: none; }
+
+@media (max-width: 480px) {
+  .dh-hi { font-size: 19px; }
+}
