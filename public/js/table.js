@@ -44,7 +44,7 @@ function renderModal() {
   b.innerHTML = `<div class="split">
     <div class="card">
       <div class="sheet-head" style="margin-bottom:8px"><h2 style="margin:0">เมนู (กดเพื่อสั่ง)</h2>
-        ${can('menu') ? '<button class="btn sm" id="qaToggle">+ เมนูใหม่</button>' : ''}</div>
+        <button class="btn sm" id="qaToggle">+ เมนูใหม่</button></div>
       <div id="qa" class="qa hidden">
         <div class="row">
           <div><label>ชื่อเมนู</label><input id="qaName"></div>
@@ -116,7 +116,9 @@ function renderModal() {
       const name = $('qaName').value.trim();
       if (!name || $('qaPrice').value === '') return alert('ใส่ชื่อและราคา');
       const body = { name, price: Number($('qaPrice').value), cat: $('qaCat').value.trim() };
-      act(order ? 'menu_add_order' : 'menu_save', order ? { table: t.id, ...body } : body);
+      if (S.menu.some(m => m.name === name)) return alert(`มีเมนู "${name}" อยู่แล้ว — กดสั่งจากรายการเมนู`);
+      act(order ? 'menu_add_order' : 'menu_save', order ? { table: t.id, ...body } : body)
+        .then(d => d && toast(order ? `สั่ง "${name}" ฿${baht(body.price)} แล้ว` : `เพิ่มเมนู "${name}" แล้ว`));
     };
     $('qaOrder').onclick = () => qaSave(true);
     $('qaOnly').onclick = () => qaSave(false);

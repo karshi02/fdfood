@@ -77,7 +77,7 @@ if (!q('SELECT COUNT(*) FROM users')->fetchColumn()) {
 
 // every account can order, take payment and mark dishes out of stock; these are the extras an owner grants per user
 const PERMS = [
-    'menu' => 'แก้เมนู / ราคา', 'discount' => 'ให้ส่วนลด', 'reduce' => 'ลดรายการที่ส่งครัวแล้ว',
+    'menu' => 'แก้ / ลบเมนูและราคา', 'discount' => 'ให้ส่วนลด', 'reduce' => 'ลดรายการที่ส่งครัวแล้ว',
     'report' => 'ดูยอดขาย / แดชบอร์ด / รายจ่าย', 'void' => 'ยกเลิกบิล', 'settings' => 'ตั้งค่าร้าน / จัดการโต๊ะ', 'users' => 'จัดการผู้ใช้',
 ];
 // role 'admin' is the owner: always every permission, so the shop can't lock itself out
@@ -409,7 +409,7 @@ try {
         });
         break;
     case 'menu_save':
-        need('menu');
+        need(empty($in['id']) ? '' : 'menu');
         tx(function () use ($in) {
             $name = str($in, 'name');
             $price = money($in['price'] ?? null);
@@ -424,8 +424,8 @@ try {
         });
         break;
     case 'menu_add_order':
-        // admin adds a brand-new dish from the table screen and orders it at once
-        need('menu');
+        // staff add a dish that isn't on the menu yet from the table screen and order it at once
+        need();
         tx(function () use ($in, $me) {
             global $pdo;
             $t = lock_table((int)($in['table'] ?? 0));
@@ -433,6 +433,7 @@ try {
             $name = str($in, 'name');
             $price = money($in['price'] ?? null);
             if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
+            if (q('SELECT id FROM menu WHERE name = ? AND active = 1', [$name])->fetch()) fail('มีเมนูชื่อนี้อยู่แล้ว — กดสั่งจากรายการเมนู');
             q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($in, 'cat', 100)]);
             q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by) VALUES (?, ?, ?, ?, 1, ?)', [$t['id'], (int)$pdo->lastInsertId(), $name, $price, $me['id']]);
         });
@@ -452,6 +453,12 @@ try {
             }
             return $n;
         });
+        break;
+    case 'menu_clear':
+        // owner wipes the whole menu (e.g. replacing the sample menu); soft delete, so old bills and open orders are untouched
+        need('menu');
+        if ($me['role'] !== 'admin') fail('เฉพาะเจ้าของร้านเท่านั้น', 403);
+        $extra['cleared'] = tx(fn() => q('UPDATE menu SET active = 0 WHERE active = 1')->rowCount());
         break;
     case 'menu_del':
         need('menu');

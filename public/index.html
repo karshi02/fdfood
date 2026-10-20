@@ -45,9 +45,9 @@
   </section>
 
   <section id="tab-menu" class="hidden">
-    <div class="card" data-perm="menu" id="menuFormCard">
+    <div class="card" id="menuFormCard">
       <div class="sheet-head" style="margin-bottom:10px"><h2 id="menuFormTitle" style="margin:0">เพิ่มเมนู</h2>
-        <button class="btn ghost sm" id="bulkBtn" type="button">+ เพิ่มหลายรายการ</button></div>
+        <button class="btn ghost sm" id="bulkBtn" type="button" data-perm="menu">+ เพิ่มหลายรายการ</button></div>
       <form id="menuForm" class="row">
         <input type="hidden" id="mId">
         <div style="flex:2 1 200px"><label>ชื่อเมนู</label><input id="mName" required maxlength="150"></div>
@@ -68,6 +68,7 @@
       <div class="menu-tools">
         <input id="menuSearch" type="search" placeholder="ค้นหาเมนูหรือหมวด...">
         <label class="perm" style="flex:0 0 auto"><input type="checkbox" id="menuOutOnly"> เฉพาะที่หมด</label>
+        <button class="btn danger sm hidden" id="menuClear" type="button">ลบเมนูทั้งหมด</button>
       </div>
       <div class="cats scroll" id="menuCats"></div>
       <p class="muted" id="menuCount" style="margin:0 0 8px"></p>

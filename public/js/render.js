@@ -50,6 +50,7 @@ function renderMenu() {
   [...all, ''].forEach(k => groups.set(k, []));
   list.forEach(m => groups.get(m.cat).push(m));
   const editable = can('menu');
+  $('menuClear').classList.toggle('hidden', !isOwner() || !S.menu.length);
   $('menuList').innerHTML = [...groups].filter(([, ms]) => ms.length).map(([k, ms]) => `
     <div class="mgroup">${esc(k || 'ไม่มีหมวด')} <span class="muted">${ms.length}</span></div>
     ${ms.map(m => `<div class="mrow${m.out ? ' out' : ''}${m.id === edit ? ' editing' : ''}">
@@ -94,6 +95,12 @@ $('menuForm').onsubmit = async e => {
 $('mCancel').onclick = resetMenuForm;
 $('menuSearch').oninput = renderMenu;
 $('menuOutOnly').onchange = renderMenu;
+$('menuClear').onclick = async () => {
+  const n = S.menu.length;
+  if (prompt(`ลบเมนูทั้งหมด ${n} รายการ?\nบิลเก่าและโต๊ะที่เปิดอยู่ไม่เปลี่ยน\nพิมพ์คำว่า ลบ เพื่อยืนยัน`) !== 'ลบ') return;
+  const d = await act('menu_clear', {});
+  if (d) { resetMenuForm(); toast(`ลบเมนูแล้ว ${d.cleared} รายการ`); }
+};
 $('bulkBtn').onclick = () => { $('bulkBox').classList.toggle('hidden'); if (!$('bulkBox').classList.contains('hidden')) $('bulkText').focus(); };
 // "name price cat": the LAST number is the price, so names may contain numbers ("เบียร์ 2 ขวด 150")
 function parseMenuLine(l) {
