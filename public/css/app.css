@@ -157,7 +157,7 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 10px; font-size: 15px; box-shadow: 0 10px 30px rgba(15,23,42,.25); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; max-width: calc(100% - 32px); }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 #receipt { display: none; }
-#login { position: fixed; inset: 0; background: linear-gradient(180deg@media print {
+@media print {
   @page { size: 80mm auto; margin: 4mm; }
   body { background: #fff; }
   body > *:not(#receipt) { display: none !important; }
@@ -173,7 +173,7 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
   #receipt.kitchen h3 { font-size: 22px; }
   #receipt svg { width: 40mm; height: 40mm; }
 }
-, var(--brand-soft), var(--bg) 60%); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+#login { position: fixed; inset: 0; background: linear-gradient(180deg, var(--brand-soft), var(--bg) 60%); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
 #login form { width: 100%; max-width: 360px; padding: 28px; box-shadow: 0 10px 30px rgba(15, 23, 42, .08); }
 .who { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .who button { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
