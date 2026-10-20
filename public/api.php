@@ -29,6 +29,11 @@ try {
 
 function q(string $sql, array $p = []): PDOStatement { global $pdo; $s = $pdo->prepare($sql); $s->execute($p); return $s; }
 function now(): string { return date('Y-m-d H:i:s'); }
+// next running bill number for the Thai year of $when: 69 + 00001 -> 6900001
+function next_bill_no(string $when): int {
+    $base = ((int)substr($when, 0, 4) + 543) % 100 * 100000;
+    return (int)q('SELECT COALESCE(MAX(bill_no), ?) + 1 FROM bills WHERE bill_no > ? AND bill_no < ? FOR UPDATE', [$base, $base, $base + 100000])->fetchColumn();
+}
 
 // run a write inside a transaction and bump the change counter clients poll
 function tx(callable $f): mixed {
@@ -39,7 +44,7 @@ function tx(callable $f): mixed {
 }
 
 // upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
-const SCHEMA = 8;
+const SCHEMA = 10;
 if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
     // last request time per user, for "who's online" in the staff list
     if (!q("SHOW COLUMNS FROM users LIKE 'last_seen'")->fetch()) {
@@ -72,6 +77,36 @@ if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColu
     q("CREATE TABLE IF NOT EXISTS login_fails (
       k VARCHAR(120) PRIMARY KEY, n INT NOT NULL DEFAULT 0, last_at DATETIME NOT NULL, locked_until DATETIME NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    // bill numbers run per Thai year: yy (พ.ศ.) + 5-digit counter, e.g. 6900001; number older bills in the order they were made
+    if (!q("SHOW COLUMNS FROM bills LIKE 'bill_no'")->fetch()) {
+        try { q('ALTER TABLE bills ADD COLUMN bill_no INT NULL UNIQUE'); }
+        catch (PDOException) {} // another request added it first
+    }
+    foreach (q('SELECT id, created_at FROM bills WHERE bill_no IS NULL ORDER BY id')->fetchAll() as $b) {
+        try { q('UPDATE bills SET bill_no = ? WHERE id = ? AND bill_no IS NULL', [next_bill_no($b['created_at']), $b['id']]); }
+        catch (PDOException) {} // another request numbered it first
+    }
+    // guests per table, dine-in or takeaway, and when each dish was ordered (the owner may back-date it)
+    if (!q("SHOW COLUMNS FROM dining_tables LIKE 'pax'")->fetch()) {
+        try { q('ALTER TABLE dining_tables ADD COLUMN pax INT NULL, ADD COLUMN takeaway TINYINT(1) NOT NULL DEFAULT 0'); }
+        catch (PDOException) {} // another request added it first
+    }
+    if (!q("SHOW COLUMNS FROM bills LIKE 'pax'")->fetch()) {
+        try { q('ALTER TABLE bills ADD COLUMN pax INT NULL, ADD COLUMN takeaway TINYINT(1) NOT NULL DEFAULT 0'); }
+        catch (PDOException) {} // another request added it first
+    }
+    if (!q("SHOW COLUMNS FROM order_items LIKE 'ordered_at'")->fetch()) {
+        try { q('ALTER TABLE order_items ADD COLUMN ordered_at DATETIME NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
+    if (!q("SHOW COLUMNS FROM bill_items LIKE 'ordered_at'")->fetch()) {
+        try { q('ALTER TABLE bill_items ADD COLUMN ordered_at DATETIME NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
+    // tables opened by mistake back when opening didn't need a dish: free them (a booking stays booked)
+    q("UPDATE dining_tables SET status = IF(resv_name IS NULL, 'free', 'resv'), opened_at = NULL, checked_at = NULL, checked_total = NULL
+       WHERE status = 'busy' AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.table_id = dining_tables.id)");
+    q("UPDATE meta SET v = v + 1 WHERE k = 'ver'");
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = GREATEST(v, VALUES(v))", [SCHEMA]);
 }
 
@@ -148,13 +183,13 @@ function state(): array {
     $byTable = [];
     foreach (q('SELECT * FROM order_items ORDER BY id') as $i) {
         $byTable[$i['table_id']][] = ['id' => (int)$i['id'], 'menuId' => $i['menu_id'] === null ? null : (int)$i['menu_id'],
-            'name' => $i['name'], 'price' => (float)$i['price'], 'qty' => (int)$i['qty'], 'sent' => (int)$i['sent'], 'note' => $i['note']];
+            'name' => $i['name'], 'price' => (float)$i['price'], 'qty' => (int)$i['qty'], 'sent' => (int)$i['sent'], 'note' => $i['note'], 'at' => $i['ordered_at']];
     }
     $tables = [];
     foreach (q('SELECT * FROM dining_tables ORDER BY sort, id') as $t) {
         $tables[] = ['id' => (int)$t['id'], 'name' => $t['name'], 'status' => $t['status'],
             'resv' => $t['resv_name'] === null ? null : ['name' => $t['resv_name'], 'phone' => $t['resv_phone'], 'time' => $t['resv_time'], 'pax' => $t['resv_pax']],
-            'openedAt' => $t['opened_at'],
+            'openedAt' => $t['opened_at'], 'pax' => $t['pax'] === null ? null : (int)$t['pax'], 'takeaway' => (bool)$t['takeaway'],
             'discount' => $t['disc_type'] ? ['type' => $t['disc_type'], 'value' => (float)$t['disc_value']] : null,
             'checked' => $t['checked_at'] === null ? null : ['at' => $t['checked_at'], 'total' => (float)$t['checked_total']],
             'order' => $byTable[$t['id']] ?? []];
@@ -169,20 +204,32 @@ function state(): array {
 
 function bill_out(array $b): array {
     $items = q('SELECT name, price, qty, note FROM bill_items WHERE bill_id = ? ORDER BY id', [$b['id']])->fetchAll();
-    return ['no' => (int)$b['id'], 'table' => $b['table_name'], 'date' => $b['created_at'],
+    return ['no' => (int)$b['id'], 'bno' => (int)($b['bill_no'] ?? 0), 'table' => $b['table_name'], 'date' => $b['created_at'],
         'items' => array_map(fn($i) => ['name' => $i['name'], 'price' => (float)$i['price'], 'qty' => (int)$i['qty'], 'note' => $i['note']], $items),
         'sub' => (float)$b['sub'], 'disc' => (float)$b['disc'], 'service' => (float)$b['service'], 'vat' => (float)$b['vat'], 'total' => (float)$b['total'],
         'servicePct' => (float)$b['service_pct'], 'vatPct' => (float)$b['vat_pct'], 'method' => $b['method'],
         'cash' => $b['cash'] === null ? null : (float)$b['cash'], 'change' => $b['change_amt'] === null ? null : (float)$b['change_amt'],
-        'void' => (bool)$b['void'], 'cashier' => $b['cashier'] ?? ''];
+        'void' => (bool)$b['void'], 'cashier' => $b['cashier'] ?? '', 'pax' => $b['pax'] === null ? null : (int)$b['pax'], 'takeaway' => (bool)$b['takeaway']];
 }
 
 function lock_table(int $id): array {
     return q('SELECT * FROM dining_tables WHERE id = ? FOR UPDATE', [$id])->fetch() ?: fail('ไม่พบโต๊ะ');
 }
+// staff always get the current time; only the owner may key in another date-time (e.g. sales written down on paper)
+function when(array $in, string $k): string {
+    global $me;
+    $v = str_replace('T', ' ', str($in, $k, 16));
+    if ($v === '' || $me['role'] !== 'admin') return now();
+    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $v) || !strtotime($v)) fail('วันเวลาไม่ถูกต้อง (เช่น 2026-10-20 18:30)');
+    return $v . ':00';
+}
 // a table only counts as open once a dish goes on it: the first dish opens a free or booked table
-function open_on_first_dish(array $t): void {
-    if ($t['status'] !== 'busy') q("UPDATE dining_tables SET status = 'busy', opened_at = ? WHERE id = ?", [now(), $t['id']]);
+// with the guest count and dine-in/takeaway picked on the open-table form
+function open_on_first_dish(array $t, array $in): void {
+    if ($t['status'] === 'busy') return;
+    $pax = (int)($in['pax'] ?? $t['resv_pax'] ?? 0);
+    q("UPDATE dining_tables SET status = 'busy', opened_at = ?, pax = ?, takeaway = ? WHERE id = ?",
+        [when($in, 'opened'), $pax > 0 ? min(999, $pax) : null, empty($in['takeaway']) ? 0 : 1, $t['id']]);
 }
 // lock the table first, then the item: same order as pay/kitchen, so no deadlock
 function lock_item(int $id): array {
@@ -210,7 +257,7 @@ function approve_menu(int $id, float $price): void {
     q('UPDATE menu SET price = ?, pending = 0 WHERE id = ?', [$price, $id]);
     q('UPDATE order_items SET price = ? WHERE menu_id = ?', [$price, $id]);
 }
-const CLEAR_TABLE ="status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
+const CLEAR_TABLE ="status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, pax = NULL, takeaway = 0, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
 // in production only nginx can reach the app (it listens on 127.0.0.1), so trust its X-Real-IP when the peer is a private address
 function client_ip(): string {
     $peer = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -312,7 +359,7 @@ try {
         tx(function () use ($in) {
             $t = lock_table((int)($in['table'] ?? 0));
             if (q('SELECT COUNT(*) FROM order_items WHERE table_id = ?', [$t['id']])->fetchColumn()) fail('โต๊ะมีรายการอาหารแล้ว');
-            q('UPDATE dining_tables SET status = ?, opened_at = NULL WHERE id = ?', [$t['resv_name'] === null ? 'free' : 'resv', $t['id']]);
+            q('UPDATE dining_tables SET status = ?, opened_at = NULL, pax = NULL, takeaway = 0 WHERE id = ?', [$t['resv_name'] === null ? 'free' : 'resv', $t['id']]);
         });
         break;
     case 'move':
@@ -330,10 +377,10 @@ try {
             if ($t['status'] === 'busy' && $f['disc_type']) fail("โต๊ะ {$f['name']} มีส่วนลดอยู่ — ลบส่วนลดก่อนรวมโต๊ะ แล้วค่อยให้ส่วนลดที่โต๊ะ {$t['name']}");
             q('UPDATE order_items SET table_id = ? WHERE table_id = ?', [$to, $from]);
             if ($t['status'] === 'busy') {
-                q('UPDATE dining_tables SET opened_at = LEAST(opened_at, ?) WHERE id = ?', [$f['opened_at'], $to]);
+                q('UPDATE dining_tables SET opened_at = LEAST(opened_at, ?), pax = NULLIF(IFNULL(pax, 0) + ?, 0) WHERE id = ?', [$f['opened_at'], (int)$f['pax'], $to]);
             } else {
-                q("UPDATE dining_tables SET status = 'busy', resv_name = ?, resv_phone = ?, resv_time = ?, resv_pax = ?, opened_at = ?, disc_type = ?, disc_value = ?, checked_at = ?, checked_total = ? WHERE id = ?",
-                    [$f['resv_name'], $f['resv_phone'], $f['resv_time'], $f['resv_pax'], $f['opened_at'], $f['disc_type'], $f['disc_value'], $f['checked_at'], $f['checked_total'], $to]);
+                q("UPDATE dining_tables SET status = 'busy', resv_name = ?, resv_phone = ?, resv_time = ?, resv_pax = ?, opened_at = ?, disc_type = ?, disc_value = ?, checked_at = ?, checked_total = ?, pax = ?, takeaway = ? WHERE id = ?",
+                    [$f['resv_name'], $f['resv_phone'], $f['resv_time'], $f['resv_pax'], $f['opened_at'], $f['disc_type'], $f['disc_value'], $f['checked_at'], $f['checked_total'], $f['pax'], $f['takeaway'], $to]);
             }
             q('UPDATE dining_tables SET ' . CLEAR_TABLE . ' WHERE id = ?', [$from]);
         });
@@ -344,12 +391,14 @@ try {
         need();
         tx(function () use ($in, $me) {
             $t = lock_table((int)($in['table'] ?? 0));
-            open_on_first_dish($t);
+            open_on_first_dish($t, $in);
             $m = q('SELECT * FROM menu WHERE id = ? AND active = 1', [(int)($in['menu'] ?? 0)])->fetch() ?: fail('ไม่พบเมนู');
             if ($m['out_of_stock']) fail('เมนูนี้หมด');
-            $ex = q("SELECT id FROM order_items WHERE table_id = ? AND menu_id = ? AND price = ? AND note = ''", [$t['id'], $m['id'], $m['price']])->fetchColumn();
+            // a back-dated dish keeps a line of its own so its time isn't folded into another
+            $at = when($in, 'at');
+            $ex = str($in, 'at') === '' ? q("SELECT id FROM order_items WHERE table_id = ? AND menu_id = ? AND price = ? AND note = '' ORDER BY id DESC LIMIT 1", [$t['id'], $m['id'], $m['price']])->fetchColumn() : false;
             if ($ex) q('UPDATE order_items SET qty = qty + 1 WHERE id = ?', [$ex]);
-            else q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by) VALUES (?, ?, ?, ?, 1, ?)', [$t['id'], $m['id'], $m['name'], $m['price'], $me['id']]);
+            else q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by, ordered_at) VALUES (?, ?, ?, ?, 1, ?, ?)', [$t['id'], $m['id'], $m['name'], $m['price'], $me['id'], $at]);
         });
         break;
     case 'item_qty':
@@ -374,8 +423,8 @@ try {
                 // take an unsent portion if there is one; if every portion already went to the kitchen, the split-off one counts as sent too
                 $splitSent = $i['sent'] >= $i['qty'] ? 1 : 0;
                 q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?) WHERE id = ?', [$qty, $qty, $i['id']]);
-                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by) VALUES (?, ?, ?, ?, 1, ?, ?, ?)',
-                    [$i['table_id'], $i['menu_id'], $i['name'], $i['price'], $splitSent, $note, $i['created_by']]);
+                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by, ordered_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)',
+                    [$i['table_id'], $i['menu_id'], $i['name'], $i['price'], $splitSent, $note, $i['created_by'], $i['ordered_at']]);
             } else {
                 q('UPDATE order_items SET note = ? WHERE id = ?', [$note, $i['id']]);
             }
@@ -417,12 +466,13 @@ try {
             same_total($in, $c['total']);
             $cash = isset($in['cash']) && $method === 'cash' ? (money($in['cash']) ?? fail('จำนวนเงินที่รับไม่ถูกต้อง')) : null;
             if ($cash !== null && $cash < $c['total']) fail('รับเงินไม่พอ');
-            q('INSERT INTO bills (table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cash, change_amt, cashier_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                [$t['name'], now(), $c['sub'], $c['disc'], $c['service'], $c['vat'], $c['total'], (float)$s['service'], (float)$s['vat'],
-                 $method, $cash, $cash === null ? null : round($cash - $c['total'], 2), $me['id']]);
+            $when = when($in, 'date');
+            q('INSERT INTO bills (bill_no, table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cash, change_amt, cashier_id, pax, takeaway) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                [next_bill_no($when), $t['name'], $when, $c['sub'], $c['disc'], $c['service'], $c['vat'], $c['total'], (float)$s['service'], (float)$s['vat'],
+                 $method, $cash, $cash === null ? null : round($cash - $c['total'], 2), $me['id'], $t['pax'], $t['takeaway']]);
             global $pdo;
             $no = (int)$pdo->lastInsertId();
-            foreach ($items as $i) q('INSERT INTO bill_items (bill_id, name, price, qty, note) VALUES (?, ?, ?, ?, ?)', [$no, $i['name'], $i['price'], $i['qty'], $i['note']]);
+            foreach ($items as $i) q('INSERT INTO bill_items (bill_id, name, price, qty, note, ordered_at) VALUES (?, ?, ?, ?, ?, ?)', [$no, $i['name'], $i['price'], $i['qty'], $i['note'], $i['ordered_at']]);
             q('DELETE FROM order_items WHERE table_id = ?', [$t['id']]);
             q('UPDATE dining_tables SET ' . CLEAR_TABLE . ' WHERE id = ?', [$t['id']]);
             return bill_out(q('SELECT b.*, u.name AS cashier FROM bills b LEFT JOIN users u ON u.id = b.cashier_id WHERE b.id = ?', [$no])->fetch());
@@ -455,10 +505,11 @@ try {
             if ($items) {
                 $s = settings();
                 $c = calc($items, $t['disc_type'], $t['disc_value'], $s);
-                q("INSERT INTO bills (table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cashier_id, void, void_by) VALUES (?,?,?,?,?,?,?,?,?,'cash',?,1,?)",
-                    [$t['name'], now(), $c['sub'], $c['disc'], $c['service'], $c['vat'], $c['total'], (float)$s['service'], (float)$s['vat'], $me['id'], $me['id']]);
+                $when = now();
+                q("INSERT INTO bills (bill_no, table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cashier_id, void, void_by) VALUES (?,?,?,?,?,?,?,?,?,?,'cash',?,1,?)",
+                    [next_bill_no($when), $t['name'], $when, $c['sub'], $c['disc'], $c['service'], $c['vat'], $c['total'], (float)$s['service'], (float)$s['vat'], $me['id'], $me['id']]);
                 $no = (int)$pdo->lastInsertId();
-                foreach ($items as $i) q('INSERT INTO bill_items (bill_id, name, price, qty, note) VALUES (?, ?, ?, ?, ?)', [$no, $i['name'], $i['price'], $i['qty'], $i['note']]);
+                foreach ($items as $i) q('INSERT INTO bill_items (bill_id, name, price, qty, note, ordered_at) VALUES (?, ?, ?, ?, ?, ?)', [$no, $i['name'], $i['price'], $i['qty'], $i['note'], $i['ordered_at']]);
                 q('DELETE FROM order_items WHERE table_id = ?', [$t['id']]);
             }
             q('UPDATE dining_tables SET ' . CLEAR_TABLE . ' WHERE id = ?', [$t['id']]);
@@ -490,14 +541,14 @@ try {
         tx(function () use ($in, $me) {
             global $pdo;
             $t = lock_table((int)($in['table'] ?? 0));
-            open_on_first_dish($t);
+            open_on_first_dish($t, $in);
             $name = str($in, 'name');
             $price = money($in['price'] ?? null);
             if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
             if (q('SELECT id FROM menu WHERE name = ? AND active = 1', [$name])->fetch()) fail('มีเมนูชื่อนี้อยู่แล้ว — กดสั่งจากรายการเมนู');
             // the kitchen can start right away; the bill waits until someone with "menu" approves the price
             q('INSERT INTO menu (name, price, cat, pending, created_by) VALUES (?, ?, ?, ?, ?)', [$name, $price, str($in, 'cat', 100), can('menu') ? 0 : 1, $me['id']]);
-            q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by) VALUES (?, ?, ?, ?, 1, ?)', [$t['id'], (int)$pdo->lastInsertId(), $name, $price, $me['id']]);
+            q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by, ordered_at) VALUES (?, ?, ?, ?, 1, ?, ?)', [$t['id'], (int)$pdo->lastInsertId(), $name, $price, $me['id'], when($in, 'at')]);
         });
         break;
     case 'menu_approve':
@@ -690,13 +741,13 @@ try {
             q('UPDATE bills SET void = 1, void_by = ? WHERE id = ?', [$me['id'], $b['id']]);
             foreach ($items as $i) {
                 $mid = q('SELECT id FROM menu WHERE name = ? AND active = 1 AND pending = 0 ORDER BY id LIMIT 1', [$i['name']])->fetchColumn() ?: null;
-                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$t['id'], $mid, $i['name'], $i['price'], $i['qty'], $i['qty'], $i['note'], $me['id']]);
+                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by, ordered_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$t['id'], $mid, $i['name'], $i['price'], $i['qty'], $i['qty'], $i['note'], $me['id'], $i['ordered_at']]);
             }
             // keep the discount the guest got (as a fixed amount, which is what the bill recorded)
             $disc = (float)$b['disc'];
-            q("UPDATE dining_tables SET status = 'busy', opened_at = ?, disc_type = ?, disc_value = ?, checked_at = NULL, checked_total = NULL WHERE id = ?",
-                [now(), $disc > 0 ? 'amt' : null, $disc > 0 ? $disc : null, $t['id']]);
+            q("UPDATE dining_tables SET status = 'busy', opened_at = ?, disc_type = ?, disc_value = ?, checked_at = NULL, checked_total = NULL, pax = ?, takeaway = ? WHERE id = ?",
+                [now(), $disc > 0 ? 'amt' : null, $disc > 0 ? $disc : null, $b['pax'], $b['takeaway'], $t['id']]);
             return (int)$t['id'];
         });
         break;

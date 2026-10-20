@@ -42,7 +42,7 @@ function renderTables() {
       st = wait ? 'รออนุมัติราคาเมนูใหม่'
         : t.checked ? (sameTotal(t) ? 'เช็คบิลแล้ว · รอชำระ' : 'ยอดเปลี่ยนหลังเช็คบิล')
         : 'มีลูกค้า' + (t.order.some(i => i.qty > i.sent) ? ' · ยังไม่ส่งครัว' : '');
-      info = `${t.order.reduce((a, i) => a + i.qty, 0)} รายการ · ฿${baht(calc(t.order, t.discount).total)} · ${mins} นาที`;
+      info = `${t.pax ? t.pax + ' คน · ' : ''}${t.takeaway ? 'กลับบ้าน · ' : ''}${t.order.reduce((a, i) => a + i.qty, 0)} รายการ · ฿${baht(calc(t.order, t.discount).total)} · ${mins} นาที`;
     }
     // one big action per card: free -> start using it, booked -> seat the guests, busy -> open the order
     const btn = t.status === 'free' ? ['go', 'chair', 'กดเปิดโต๊ะ']
@@ -59,9 +59,8 @@ function renderTables() {
     const id = Number(el.dataset.id);
     el.onclick = () => openTable(id);
     el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTable(id); } };
-    // "กดเปิดโต๊ะ"/"เปิดโต๊ะ" opens the table for ordering in one tap; other states just open it
-    // straight to the menu; the table only opens when the first dish is added
-    el.querySelector('.tact').onclick = e => { e.stopPropagation(); openTable(id, e.currentTarget.dataset.act !== 'busy'); };
+    // the open-table form (guests, dine-in/takeaway) comes first; the table only opens when the first dish is added
+    el.querySelector('.tact').onclick = e => { e.stopPropagation(); openTable(id); };
   });
 }
 

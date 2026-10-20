@@ -3,10 +3,20 @@
 // resvTime likewise keeps a picked booking time across the 3-second sync re-render
 // curQ keeps the menu search across the re-render that follows each tap on a dish
 // draft: the order sheet is showing for a table that isn't open yet; the first dish opens it on the server
+// opening: guests, dine-in/takeaway and (owner only) the open time, sent along with the first dish
+// orderAt / payAt: the owner's back-dated order and payment times; '' means now
 let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', resvTime = '', draft = false;
+let opening = { pax: '', takeaway: false, opened: '' }, orderAt = '', payAt = '';
 // datetime-local wants local time; toISOString() alone is UTC, 7 hours behind in Bangkok
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-function openTable(id, asDraft) { cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; $('modal').classList.remove('hidden'); renderModal(); }
+// what every dish carries: it opens the table if it's the first one (the server ignores the opening fields otherwise)
+const dishExtra = () => ({ pax: Number(opening.pax) || null, takeaway: opening.takeaway ? 1 : 0, opened: isOwner() ? opening.opened : '', at: isOwner() ? orderAt : '' });
+function openTable(id, asDraft) {
+  cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; orderAt = ''; payAt = '';
+  const t = S.tables.find(x => x.id === id);
+  opening = { pax: t && t.resv ? String(t.resv.pax || '') : '', takeaway: false, opened: '' };
+  $('modal').classList.remove('hidden'); renderModal();
+}
 function closeModal() {
   // leaving an open table with nothing ordered frees it again; quiet, since another device may have just added a dish
   const t = S.tables.find(x => x.id === cur);
@@ -33,7 +43,19 @@ function renderModal() {
 
   if (t.status !== 'busy' && !draft) {
     const r = t.resv || { time: '', pax: 2 };
-    b.innerHTML = `<div class="card">
+    b.innerHTML = `<div class="card openform">
+      <h2>เปิดโต๊ะ</h2>
+      <div class="row">
+        <div><label>จำนวนลูกค้า (คน)</label><input id="oPax" type="number" min="1" inputmode="numeric" placeholder="เช่น 4" value="${esc(opening.pax)}"></div>
+        ${isOwner() ? `<div><label>วัน-เวลาเปิดโต๊ะ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="oOpened" type="datetime-local" value="${esc(opening.opened)}"></div>` : ''}
+      </div>
+      <div class="chips" role="radiogroup">
+        <button class="chip ${opening.takeaway ? '' : 'on'}" data-ta="0" type="button">ทานที่ร้าน</button>
+        <button class="chip ${opening.takeaway ? 'on' : ''}" data-ta="1" type="button">สั่งกลับบ้าน</button>
+      </div>
+      <div class="actions"><button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button></div>
+    </div>
+    <div class="card">
       <h2>${t.status === 'resv' ? 'ข้อมูลการจอง' : 'จองโต๊ะ'}</h2>
       <div class="row">
         <div><label>วัน-เวลา</label><input id="rTime" type="datetime-local" value="${esc(resvTime || String(r.time || nowLocal()).replace(' ', 'T'))}"></div>
@@ -42,14 +64,19 @@ function renderModal() {
       <div class="actions">
         <button class="btn" id="rSave">${t.status === 'resv' ? 'บันทึกการจอง' : 'จองโต๊ะ'}</button>
         ${t.status === 'resv' ? '<button class="btn danger" id="rCancel">ยกเลิกการจอง</button>' : ''}
-        <button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button>
       </div></div>`;
+    $('oPax').oninput = e => { opening.pax = e.target.value; };
+    if ($('oOpened')) $('oOpened').oninput = e => { opening.opened = e.target.value; };
+    b.querySelectorAll('[data-ta]').forEach(x => x.onclick = () => { opening.takeaway = x.dataset.ta === '1'; renderModal(); });
     $('rTime').oninput = e => { resvTime = e.target.value; };
     $('rSave').onclick = async () => {
       if (await act('resv_save', { table: t.id, time: $('rTime').value.replace('T', ' '), pax: Number($('rPax').value) })) closeModal();
     };
     if ($('rCancel')) $('rCancel').onclick = async () => { if (confirm('ยกเลิกการจอง?') && await act('resv_cancel', { table: t.id })) { closeModal(); toast(`ยกเลิกการจองโต๊ะ ${t.name} แล้ว`); } };
-    $('open').onclick = () => { draft = true; renderModal(); };
+    $('open').onclick = () => {
+      if (!(Number(opening.pax) >= 1)) { alert('ใส่จำนวนลูกค้า'); return $('oPax').focus(); }
+      draft = true; renderModal();
+    };
     return;
   }
 
@@ -65,6 +92,9 @@ function renderModal() {
     ? `<span class="${cls} photo"><img src="${esc(img)}" alt="" loading="lazy"></span>`
     : `<span class="${cls}">${icon(catIcon(cat))}</span>`;
   const MICON = { cash: 'bill', transfer: 'qr', other: 'dots' };
+  // guests / dine-in or takeaway: the table's own once open, the open form's while still a draft
+  const g = t.status === 'busy' ? { pax: t.pax, takeaway: t.takeaway } : { pax: Number(opening.pax) || null, takeaway: opening.takeaway };
+  const guests = [g.pax ? g.pax + ' คน' : '', g.takeaway ? 'สั่งกลับบ้าน' : 'ทานที่ร้าน'].filter(Boolean).join(' · ');
   b.innerHTML = `<div class="split osheet">
     <div class="mpane">
       <div class="msearch">
@@ -88,7 +118,8 @@ function renderModal() {
     </div>
     <div class="opane" id="orderCard">
       <section class="osec">
-        <div class="osec-h">${icon('cart')}<span>รายการที่สั่ง</span>${t.resv && t.resv.name ? `<small>${esc(t.resv.name)}</small>` : ''}</div>
+        <div class="osec-h">${icon('cart')}<span>รายการที่สั่ง</span><small>${esc([t.resv && t.resv.name, guests].filter(Boolean).join(' · '))}</small></div>
+        ${isOwner() ? `<div class="ownat"><label>เวลาสั่ง <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="orderAt" type="datetime-local" value="${esc(orderAt)}"></div>` : ''}
         <div class="osec-b">
           ${t.order.map(i => `<div class="oi">
             ${thumb(null, catOf(i.menuId, i.name), 'oimg')}
@@ -123,6 +154,7 @@ function renderModal() {
       <section class="osec">
         <div class="osec-h">${icon('wallet')}<span>ช่องทางการชำระเงิน</span></div>
         <div class="osec-b">
+          ${isOwner() ? `<div class="ownat"><label>วัน-เวลาชำระ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="payAt" type="datetime-local" value="${esc(payAt)}"></div>` : ''}
           <div class="ptiles">${PAY_METHODS.map(k => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k])}<span>${METHODS[k]}</span></button>`).join('')}</div>
           ${payMethod === 'cash' ? `<div class="row">
               <div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(cashIn)}"></div>
@@ -148,7 +180,9 @@ function renderModal() {
 
   b.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => { curCat = x.dataset.cat; renderModal(); });
   b.querySelectorAll('[data-m]').forEach(x => x.onclick = () => { payMethod = x.dataset.m; renderModal(); });
-  b.querySelectorAll('[data-add]').forEach(x => x.onclick = () => act('item_add', { table: t.id, menu: Number(x.dataset.add) }));
+  b.querySelectorAll('[data-add]').forEach(x => x.onclick = () => act('item_add', { table: t.id, menu: Number(x.dataset.add), ...dishExtra() }));
+  if ($('orderAt')) $('orderAt').oninput = e => { orderAt = e.target.value; };
+  if ($('payAt')) $('payAt').oninput = e => { payAt = e.target.value; };
   b.querySelectorAll('[data-q]').forEach(x => x.onclick = () => {
     const i = t.order.find(o => o.id == x.dataset.q), d = Number(x.dataset.d);
     if (d < 0 && i.qty <= i.sent && !confirm(`"${i.name}" ส่งครัวไปแล้ว ยืนยันลด?`)) return;
@@ -167,7 +201,7 @@ function renderModal() {
       if (!name || $('qaPrice').value === '') return alert('ใส่ชื่อและราคา');
       const body = { name, price: Number($('qaPrice').value), cat: $('qaCat').value.trim() };
       if (S.menu.some(m => m.name === name)) return alert(`มีเมนู "${name}" อยู่แล้ว — กดสั่งจากรายการเมนู`);
-      act(order ? 'menu_add_order' : 'menu_save', order ? { table: t.id, ...body } : body)
+      act(order ? 'menu_add_order' : 'menu_save', order ? { table: t.id, ...body, ...dishExtra() } : body)
         .then(d => d && toast((order ? `สั่ง "${name}" ฿${baht(body.price)} แล้ว` : `เพิ่มเมนู "${name}" แล้ว`) + (can('menu') ? '' : ' · รออนุมัติราคา')));
     };
     $('qaOrder').onclick = () => qaSave(true);
@@ -211,8 +245,8 @@ function renderModal() {
     const cash = $('cash') && $('cash').value ? Number($('cash').value) : null;
     if (cash !== null && cash < c.total) return alert('รับเงินไม่พอ');
     if (pendingQty && !confirm('มีรายการยังไม่ส่งครัว — ชำระต่อเลย?')) return;
-    if (!confirm(`ยืนยันชำระ ${METHODS[payMethod]} ฿${baht(c.total)} และปิดโต๊ะ?`)) return;
-    const d = await act('pay', { table: t.id, method: payMethod, cash, expect: c.total });
+    if (!confirm(`ยืนยันชำระ ${METHODS[payMethod]} ฿${baht(c.total)}${payAt ? ' ลงวันที่ ' + payAt.replace('T', ' ') : ''} และปิดโต๊ะ?`)) return;
+    const d = await act('pay', { table: t.id, method: payMethod, cash, expect: c.total, date: isOwner() ? payAt : '' });
     if (d) { closeModal(); toast(`ชำระเงินแล้ว · ปิดโต๊ะ ${t.name}`); printBill(d.bill); } else act('state');
   };
   if ($('cancelOpen')) $('cancelOpen').onclick = async () => { if (await act('cancel_open', { table: t.id })) { closeModal(); toast(`ยกเลิกเปิดโต๊ะ ${t.name} แล้ว`); } };

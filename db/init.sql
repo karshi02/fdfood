@@ -46,7 +46,9 @@ CREATE TABLE dining_tables (
   disc_type ENUM('amt','pct') NULL,
   disc_value DECIMAL(10,2) NULL,
   checked_at DATETIME NULL,
-  checked_total DECIMAL(10,2) NULL
+  checked_total DECIMAL(10,2) NULL,
+  pax INT NULL,
+  takeaway TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE order_items (
@@ -59,11 +61,13 @@ CREATE TABLE order_items (
   sent INT NOT NULL DEFAULT 0,
   note VARCHAR(200) NOT NULL DEFAULT '',
   created_by INT NULL,
+  ordered_at DATETIME NULL,
   INDEX (table_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE bills (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  bill_no INT NULL UNIQUE,
   table_name VARCHAR(50) NOT NULL,
   created_at DATETIME NOT NULL,
   sub DECIMAL(10,2) NOT NULL,
@@ -79,6 +83,8 @@ CREATE TABLE bills (
   cashier_id INT NULL,
   void TINYINT(1) NOT NULL DEFAULT 0,
   void_by INT NULL,
+  pax INT NULL,
+  takeaway TINYINT(1) NOT NULL DEFAULT 0,
   INDEX (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -89,6 +95,7 @@ CREATE TABLE bill_items (
   price DECIMAL(10,2) NOT NULL,
   qty INT NOT NULL,
   note VARCHAR(200) NOT NULL DEFAULT '',
+  ordered_at DATETIME NULL,
   INDEX (bill_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

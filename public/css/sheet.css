@@ -165,3 +165,10 @@
 /* owner-only bill controls in the sales report */
 .owneract { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
 .owneract select { width: auto; padding: 5px 8px; font-size: 13px; min-height: 34px; }
+/* open-table form: dine-in / takeaway; owner-only back-dating fields on the order sheet */
+.openform .chips { display: flex; gap: 8px; margin: 12px 0 4px; }
+.openform .chips .chip { flex: 1; padding: 10px 14px; font-size: 16px; }
+.ownat { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 16px 12px; color: var(--on-dark-muted); font-size: 14px; }
+.ownat label { margin: 0; color: inherit; }
+.ownat input { flex: 1 1 180px; min-width: 0; }
+.osec-b .ownat { padding: 0 0 12px; color: var(--muted); }
