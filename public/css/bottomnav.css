@@ -1,0 +1,40 @@
+/* Phone bottom navbar (js/bottomnav.js). Tablets/desktops keep the header tabs. */
+.bnav { display: none; }
+@media (max-width: 760px) {
+  header nav { display: none; }
+  main { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+
+  .bnav {
+    position: fixed; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 8;
+    display: flex; justify-content: space-around; align-items: flex-end; gap: 2px;
+    padding: 8px 6px 6px; border-radius: 22px;
+    background: rgba(58, 8, 14, .94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-line); box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+    transition: transform .28s ease, opacity .28s ease;
+  }
+  .bnav.away { transform: translateY(calc(100% + 24px)); opacity: 0; pointer-events: none; }
+
+  .bnav button {
+    flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 4px 2px; border: 0; background: none; color: var(--on-dark-muted);
+    font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; position: relative;
+    min-height: 0; border-radius: 12px; box-shadow: none;
+  }
+  .bnav button:hover { background: none; color: var(--on-dark); }
+  .bnav button .ic { width: 22px; height: 22px; transition: transform .2s; }
+  .bnav button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* active tab: raised gold circle */
+  .bnav button.on { background: none; color: var(--gold); box-shadow: none; }
+  .bnav button.on .ic {
+    width: 46px; height: 46px; padding: 11px; margin-top: -26px; border-radius: 50%;
+    background: linear-gradient(180deg, #fff0cc, var(--gold) 60%, var(--gold-2)); color: var(--brand-ink);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, .4), 0 0 0 4px rgba(58, 8, 14, .94);
+  }
+  .bnav .navbadge { position: absolute; top: -2px; left: calc(50% + 6px); right: auto; margin: 0; background: #e11d48; }
+  .bnav button.on .navbadge { top: -26px; left: calc(50% + 12px); }
+
+  /* the table sheet covers the page; the bar sits under it */
+  body:has(.modal:not(.hidden)) .bnav { display: none; }
+}
+@media print { .bnav { display: none !important; } }

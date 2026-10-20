@@ -45,7 +45,7 @@ function renderTables() {
     // one big action per card: free -> start using it, booked -> seat the guests, busy -> open the order
     const btn = t.status === 'free' ? ['go', 'chair', 'ใช้งาน']
       : t.status === 'resv' ? ['go', 'chair', 'เปิดโต๊ะ']
-      : t.checked ? ['pay', 'receipt', 'รับชำระ'] : ['view', 'receipt', 'ดูออเดอร์'];
+      : t.checked ? ['pay', 'receipt', 'รับชำระ'] : ['view', 'receipt', 'ออเดอร์'];
     return `<div class="tbl ${t.status}${t.checked ? ' checked' : ''}${wait ? ' wait' : ''}" data-id="${t.id}" role="button" tabindex="0">
       <div class="thead">${icon('table', 'tico')}<b>โต๊ะ ${esc(t.name)}</b></div>
       <span class="pill"><i></i>${st}</span>
