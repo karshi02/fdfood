@@ -1,0 +1,21 @@
+/* Press feedback for every button: a quick squeeze + slight darken while the finger/mouse is down.
+   Loaded after app.css. Selectors are (0,1,1)+ so they win over single-class rules like .btn,
+   and the transition list repeats the colour transitions those rules had so hovers stay smooth. */
+button:not(:disabled), [role="button"]:not([aria-disabled="true"]) {
+  transition: transform .09s ease-out, filter .09s ease-out, background-color .15s, border-color .15s, color .15s, box-shadow .15s;
+  -webkit-tap-highlight-color: transparent; /* the squeeze replaces the grey iOS/Android tap flash */
+  touch-action: manipulation; /* no double-tap zoom delay on tablets */
+}
+button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(.95);
+  filter: brightness(.92);
+  transition-duration: .04s; /* press in fast, spring back at the normal speed */
+}
+/* big targets squeeze less so they don't look like they jump */
+.tbl:not(:disabled):active, .btn.lg:not(:disabled):active, .mi:not(:disabled):active, .jump:not(:disabled):active { transform: scale(.97); }
+/* tiny targets (qty +/−, note links) squeeze more so the press is visible under a finger */
+.qty button:not(:disabled):active, .note:not(:disabled):active { transform: scale(.88); }
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active { transform: none; filter: brightness(.88); }
+}
