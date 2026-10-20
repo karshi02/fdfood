@@ -29,12 +29,31 @@ function renderReport() {
     <td>${esc(b.cashier)}</td><td>${b.void ? 'ยกเลิก' : METHODS[b.method]}</td><td class="num">${baht(b.total)}</td>
     <td class="num" style="white-space:nowrap"><button class="btn ghost sm" data-print="${b.no}">พิมพ์ซ้ำ</button>
     ${isOwner() ? `<button class="btn ghost sm" data-redate="${b.no}">เปลี่ยนวัน</button>` : ''}
-    ${b.void ? '' : `<button class="btn danger sm" data-void="${b.no}">ยกเลิก</button>`}</td></tr>`).join('')
+    ${b.void ? '' : `<button class="btn danger sm" data-void="${b.no}">ยกเลิก</button>`}
+    ${!b.void && isOwner() ? `<div class="owneract">
+      <select data-method="${b.no}" title="เปลี่ยนวิธีชำระ">${PAY_METHODS.concat(PAY_METHODS.includes(b.method) ? [] : [b.method]).map(k => `<option value="${k}" ${k === b.method ? 'selected' : ''}>${METHODS[k]}</option>`).join('')}</select>
+      <button class="btn warn sm" data-reopen="${b.no}">เปิดบิลชำระใหม่</button></div>` : ''}</td></tr>`).join('')
     || '<tr><td colspan="7" class="muted">ไม่มีบิลวันนี้</td></tr>';
   $('topBody').innerHTML = d.top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${i.qty}</td><td class="num">${baht(i.amt)}</td></tr>`).join('')
     || '<tr><td colspan="3" class="muted">-</td></tr>';
   $('billBody').querySelectorAll('[data-print]').forEach(b => b.onclick = () => printBill(report.bills.find(x => x.no == b.dataset.print)));
   $('billBody').querySelectorAll('[data-redate]').forEach(x => x.onclick = () => redateBill(report.bills.find(b => b.no == x.dataset.redate)));
+  // owner only (the server checks too): fix how a bill was paid, or reopen it to take payment again
+  $('billBody').querySelectorAll('[data-method]').forEach(s => s.onchange = async () => {
+    const no = Number(s.dataset.method), bill = report.bills.find(x => x.no === no);
+    if (!confirm(`เปลี่ยนวิธีชำระบิล #${no} จาก "${METHODS[bill.method]}" เป็น "${METHODS[s.value]}"?`)) { s.value = bill.method; return; }
+    if (await act('bill_method', { no, method: s.value })) { toast(`บิล #${no} เปลี่ยนเป็น ${METHODS[s.value]} แล้ว`); loadReport(); }
+    else s.value = bill.method;
+  });
+  $('billBody').querySelectorAll('[data-reopen]').forEach(b => b.onclick = async () => {
+    const no = Number(b.dataset.reopen), bill = report.bills.find(x => x.no === no);
+    if (!confirm(`เปิดบิล #${no} (โต๊ะ ${bill.table} ฿${baht(bill.total)}) เพื่อชำระใหม่?\nบิลนี้จะถูกบันทึกเป็น "ยกเลิก" และรายการทั้งหมดจะกลับไปที่โต๊ะ ${bill.table}`)) return;
+    const d = await act('bill_reopen', { no });
+    if (!d) return;
+    toast(`เปิดบิล #${no} ที่โต๊ะ ${bill.table} แล้ว — ชำระใหม่ได้เลย`);
+    loadReport();
+    showTab('tables'); openTable(d.table);
+  });
   $('billBody').querySelectorAll('[data-void]').forEach(b => b.onclick = async () => {
     if (confirm(`ยกเลิกบิล #${b.dataset.void}? ยอดจะไม่นับรวมยอดขาย`) && await act('bill_void', { no: Number(b.dataset.void) })) { loadReport(); toast(`ยกเลิกบิล #${b.dataset.void} แล้ว`); }
   });

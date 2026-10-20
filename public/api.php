@@ -655,6 +655,47 @@ try {
         if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $when) || !strtotime($when)) fail('วันเวลาไม่ถูกต้อง (เช่น 2026-10-20 18:30)');
         if (!tx(fn() => q('UPDATE bills SET created_at = ? WHERE id = ?', [$when . ':00', (int)($in['no'] ?? 0)])->rowCount())) fail('ไม่พบบิล หรือวันเวลาเดิม');
         break;
+    case 'bill_method':
+        // owner fixes how a paid bill was paid (e.g. cashier pressed cash but the guest transferred)
+        need();
+        if ($me['role'] !== 'admin') fail('เฉพาะเจ้าของร้าน/แอดมินเท่านั้น', 403);
+        $method = in_array($in['method'] ?? '', ['cash', 'transfer', 'other'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
+        tx(function () use ($in, $method) {
+            $b = q('SELECT * FROM bills WHERE id = ? FOR UPDATE', [(int)($in['no'] ?? 0)])->fetch() ?: fail('ไม่พบบิล');
+            if ($b['void']) fail('บิลนี้ถูกยกเลิกแล้ว');
+            // cash received / change only mean something for cash
+            q('UPDATE bills SET method = ?, cash = IF(? = \'cash\', cash, NULL), change_amt = IF(? = \'cash\', change_amt, NULL) WHERE id = ?',
+                [$method, $method, $method, $b['id']]);
+        });
+        break;
+    case 'bill_reopen':
+        // owner reopens a paid bill to take payment again: the bill is voided (kept in the report as cancelled)
+        // and its dishes go back on the same table, already marked as sent to the kitchen
+        need();
+        if ($me['role'] !== 'admin') fail('เฉพาะเจ้าของร้าน/แอดมินเท่านั้น', 403);
+        $extra['table'] = tx(function () use ($in, $me) {
+            $b = q('SELECT * FROM bills WHERE id = ? FOR UPDATE', [(int)($in['no'] ?? 0)])->fetch() ?: fail('ไม่พบบิล');
+            if ($b['void']) fail('บิลนี้ถูกยกเลิกแล้ว');
+            $tid = q('SELECT id FROM dining_tables WHERE name = ? ORDER BY id LIMIT 1', [$b['table_name']])->fetchColumn()
+                ?: fail('ไม่พบโต๊ะ ' . $b['table_name'] . ' (อาจถูกลบไปแล้ว)');
+            $t = lock_table((int)$tid);
+            if ($t['status'] === 'busy') fail('โต๊ะ ' . $t['name'] . ' มีลูกค้าอยู่ — ชำระหรือย้ายโต๊ะนั้นก่อน');
+            if ($t['status'] === 'resv') fail('โต๊ะ ' . $t['name'] . ' ถูกจองไว้ — ยกเลิกการจองก่อน');
+            $items = q('SELECT * FROM bill_items WHERE bill_id = ? ORDER BY id', [$b['id']])->fetchAll();
+            if (!$items) fail('บิลนี้ไม่มีรายการ');
+            q('UPDATE bills SET void = 1, void_by = ? WHERE id = ?', [$me['id'], $b['id']]);
+            foreach ($items as $i) {
+                $mid = q('SELECT id FROM menu WHERE name = ? AND active = 1 AND pending = 0 ORDER BY id LIMIT 1', [$i['name']])->fetchColumn() ?: null;
+                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$t['id'], $mid, $i['name'], $i['price'], $i['qty'], $i['qty'], $i['note'], $me['id']]);
+            }
+            // keep the discount the guest got (as a fixed amount, which is what the bill recorded)
+            $disc = (float)$b['disc'];
+            q("UPDATE dining_tables SET status = 'busy', opened_at = ?, disc_type = ?, disc_value = ?, checked_at = NULL, checked_total = NULL WHERE id = ?",
+                [now(), $disc > 0 ? 'amt' : null, $disc > 0 ? $disc : null, $t['id']]);
+            return (int)$t['id'];
+        });
+        break;
     case 'users':
         need('users');
         // ago = seconds since the user's last request (null = signed out / never), measured on the DB clock
