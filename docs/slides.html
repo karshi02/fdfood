@@ -131,7 +131,7 @@ table.t td.c, table.t th.c { text-align: center; }
   <div class="flow">
     <div class="f"><div class="n2">1</div><b>จองโต๊ะ</b><span>ใส่วัน-เวลา และจำนวนคน (ถ้ามี)</span></div>
     <div class="arr">›</div>
-    <div class="f"><div class="n2">2</div><b>เปิดโต๊ะ</b><span>กด "ใช้งาน" ที่โต๊ะ โต๊ะเปิดจริงเมื่อสั่งจานแรก</span></div>
+    <div class="f"><div class="n2">2</div><b>เปิดโต๊ะ</b><span>แตะปุ่ม "กดเปิดโต๊ะ" ที่โต๊ะว่าง โต๊ะเปิดจริงเมื่อสั่งจานแรก</span></div>
     <div class="arr">›</div>
     <div class="f"><div class="n2">3</div><b>สั่งอาหาร</b><span>แตะเมนู ปรับจำนวน ใส่หมายเหตุ</span></div>
     <div class="arr">›</div>
@@ -204,7 +204,7 @@ table.t td.c, table.t th.c { text-align: center; }
     <div>
       <p style="margin-top:0">แตะโต๊ะใดก็ได้เพื่อเปิดหน้าต่างของโต๊ะนั้น</p>
       <div class="legend" style="flex-direction:column;gap:10px">
-        <span><i style="background:var(--free)"></i><b>ว่าง</b> · ปุ่ม "ใช้งาน" เริ่มสั่งอาหารได้ทันที</span>
+        <span><i style="background:var(--free)"></i><b>ว่าง</b> · ปุ่ม "กดเปิดโต๊ะ" เริ่มสั่งอาหารได้ทันที</span>
         <span><i style="background:var(--resv)"></i><b>จองแล้ว</b> · แสดงเวลาและจำนวนคน</span>
         <span><i style="background:var(--busy)"></i><b>มีลูกค้า</b> · จำนวนรายการ ยอด เวลาที่นั่ง และเตือน "ยังไม่ส่งครัว" / "รอชำระ"</span>
       </div>
@@ -232,7 +232,7 @@ table.t td.c, table.t th.c { text-align: center; }
     <div class="card">
       <h2>เปิดโต๊ะเมื่อลูกค้ามาถึง</h2>
       <ol class="steps">
-        <li>กดปุ่ม <span class="k">ใช้งาน</span> (โต๊ะว่าง) หรือ <span class="k">เปิดโต๊ะ</span> (โต๊ะที่จองไว้) หน้าสั่งอาหารเปิดขึ้นมา</li>
+        <li>กดปุ่ม <span class="k">กดเปิดโต๊ะ</span> (โต๊ะว่าง) หรือ <span class="k">เปิดโต๊ะ</span> (โต๊ะที่จองไว้) หน้าสั่งอาหารเปิดขึ้นมา</li>
         <li>กดเมนูจานแรก โต๊ะจึงเปลี่ยนเป็น "มีลูกค้า" และเริ่มนับเวลา (ข้อมูลการจองยังอยู่)</li>
       </ol>
       <div class="note" style="margin-top:6px">เปิดผิดโต๊ะ? ถ้ายังไม่ได้สั่งอะไร แค่กดปิด โต๊ะกลับเป็นว่าง (หรือจองไว้) เหมือนเดิม · ลดจานสุดท้ายออกแล้วปิด ก็กลับเป็นว่างเช่นกัน</div>
