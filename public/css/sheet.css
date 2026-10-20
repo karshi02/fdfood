@@ -172,3 +172,23 @@
 .ownat label { margin: 0; color: inherit; }
 .ownat input { flex: 1 1 180px; min-width: 0; }
 .osec-b .ownat { padding: 0 0 12px; color: var(--muted); }
+/* sales bills on a phone: two-line rows that fit the screen, no sideways scroll; tap a row for its dishes and actions */
+.billtbl tr[data-row] { cursor: pointer; }
+.bvacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.bvacts .owneract { margin: 0; }
+@media (max-width: 760px) {
+  .billtbl thead { display: none; }
+  .billtbl tr[data-row] { display: grid; grid-template-columns: auto auto 1fr auto; grid-template-areas: "no time tbl amt" "who who who pay";
+    column-gap: 10px; row-gap: 2px; align-items: baseline; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .billtbl tr[data-row]:last-child { border-bottom: 0; }
+  .billtbl tr[data-row] td { display: block; padding: 0; border: 0; min-width: 0; }
+  .billtbl .bno { grid-area: no; } .billtbl .btime { grid-area: time; white-space: nowrap; }
+  .billtbl .btbl { grid-area: tbl; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .billtbl .btbl::before { content: 'โต๊ะ '; color: var(--muted); }
+  .billtbl .bamt { grid-area: amt; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .billtbl .bwho { grid-area: who; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .billtbl .bpay { grid-area: pay; font-size: 13px; text-align: right; }
+  .billtbl .bpay .muted { font-size: 12px; }
+  .billtbl .bact { display: none !important; }
+  .billtbl tr[data-row]:active { background: var(--brand-soft); }
+}

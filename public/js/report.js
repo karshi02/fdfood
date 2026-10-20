@@ -29,15 +29,14 @@ function renderReport() {
     <div class="stat"><span class="muted">เฉลี่ย/บิล</span><b>฿${baht(d.ok.length ? d.total / d.ok.length : 0)}</b></div>
     <div class="stat"><span class="muted">ส่วนลดรวม</span><b>฿${baht(d.disc)}</b></div>
     ${Object.entries(d.byMethod).map(([k, v]) => `<div class="stat"><span class="muted">${METHODS[k]}</span><b>฿${baht(v)}</b></div>`).join('')}`;
-  $('billBody').innerHTML = d.bills.slice().reverse().map(b => `<tr class="${b.void ? 'void' : ''}">
-    <td><button class="linkbtn" data-view="${b.no}" title="ดูรายการในบิล">#${billNo(b)}</button></td><td style="white-space:nowrap">${rFrom === rTo ? '' : calDay(dayKey(toDate(b.date))) + ' '}${toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td><td>${esc(b.table)}</td>
-    <td>${esc(b.cashier)}</td><td>${b.void ? 'ยกเลิก' : METHODS[b.method]}${b.method === 'mixed' && !b.void ? `<div class="muted">สด ${baht(b.total - b.transfer)} · โอน ${baht(b.transfer)}</div>` : ''}</td><td class="num">${baht(b.total)}</td>
-    <td class="num" style="white-space:nowrap"><button class="btn ghost sm" data-print="${b.no}">พิมพ์ซ้ำ</button>
-    ${isOwner() ? `<button class="btn ghost sm" data-redate="${b.no}">เปลี่ยนวัน</button>` : ''}
-    ${b.void ? '' : `<button class="btn danger sm" data-void="${b.no}">ยกเลิก</button>`}
-    ${!b.void && isOwner() ? `<div class="owneract">
-      <select data-method="${b.no}" title="เปลี่ยนวิธีชำระ">${PAY_METHODS.concat(PAY_METHODS.includes(b.method) ? [] : [b.method]).map(k => `<option value="${k}" ${k === b.method ? 'selected' : ''}>${METHODS[k]}</option>`).join('')}</select>
-      <button class="btn warn sm" data-reopen="${b.no}">เปิดบิลชำระใหม่</button></div>` : ''}</td></tr>`).join('')
+  // phone: each row becomes a compact two-line card (see .billtbl in sheet.css); tap it for the dishes and the bill's actions
+  $('billBody').innerHTML = d.bills.slice().reverse().map(b => `<tr class="${b.void ? 'void' : ''}" data-row="${b.no}">
+    <td class="bno"><button class="linkbtn" data-view="${b.no}" title="ดูรายการในบิล">#${billNo(b)}</button></td>
+    <td class="btime">${rFrom === rTo ? '' : calDay(dayKey(toDate(b.date))) + ' '}${toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td>
+    <td class="btbl">${esc(b.table)}</td><td class="bwho">${esc(b.cashier)}</td>
+    <td class="bpay">${b.void ? 'ยกเลิก' : METHODS[b.method]}${b.method === 'mixed' && !b.void ? `<div class="muted">สด ${baht(b.total - b.transfer)} · โอน ${baht(b.transfer)}</div>` : ''}</td>
+    <td class="num bamt">${baht(b.total)}</td>
+    <td class="num bact">${billActs(b)}</td></tr>`).join('')
     || `<tr><td colspan="7" class="muted">ไม่มีบิล${rFrom === rTo ? 'วันนี้' : 'ในช่วงนี้'}</td></tr>`;
   $('topBody').innerHTML = d.top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${i.qty}</td><td class="num">${baht(i.amt)}</td></tr>`).join('')
     || '<tr><td colspan="3" class="muted">-</td></tr>';
@@ -46,28 +45,43 @@ function renderReport() {
     <td>${esc(c.cat || 'ไม่มีหมวด')}<div class="cattrack"><span style="width:${c.amt / catMax * 100}%"></span></div></td>
     <td class="num">${c.qty}</td><td class="num">${baht(c.amt)}</td><td class="num">${(c.amt / catSum * 100).toFixed(0)}%</td></tr>`).join('')
     || '<tr><td colspan="5" class="muted">-</td></tr>';
-  $('billBody').querySelectorAll('[data-print]').forEach(b => b.onclick = () => printBill(report.bills.find(x => x.no == b.dataset.print)));
   $('billBody').querySelectorAll('[data-view]').forEach(x => x.onclick = () => viewBill(report.bills.find(b => b.no == x.dataset.view)));
-  $('billBody').querySelectorAll('[data-redate]').forEach(x => x.onclick = () => redateBill(report.bills.find(b => b.no == x.dataset.redate)));
+  $('billBody').querySelectorAll('[data-row]').forEach(r => r.onclick = e => { if (!e.target.closest('button, select')) viewBill(report.bills.find(b => b.no == r.dataset.row)); });
+  bindBillActs($('billBody'));
+}
+// reprint / change date / void, and for the owner: change how it was paid or reopen it; shown in the table row and in the bill sheet
+function billActs(b, withPrint = true) {
+  return `${withPrint ? `<button class="btn ghost sm" data-print="${b.no}">พิมพ์ซ้ำ</button>` : ''}
+    ${isOwner() ? `<button class="btn ghost sm" data-redate="${b.no}">เปลี่ยนวัน</button>` : ''}
+    ${b.void ? '' : `<button class="btn danger sm" data-void="${b.no}">ยกเลิก</button>`}
+    ${!b.void && isOwner() ? `<div class="owneract">
+      <select data-method="${b.no}" title="เปลี่ยนวิธีชำระ">${PAY_METHODS.concat(PAY_METHODS.includes(b.method) ? [] : [b.method]).map(k => `<option value="${k}" ${k === b.method ? 'selected' : ''}>${METHODS[k]}</option>`).join('')}</select>
+      <button class="btn warn sm" data-reopen="${b.no}">เปิดบิลชำระใหม่</button></div>` : ''}`;
+}
+// done(): close the bill sheet before a change reloads the list under it
+function bindBillActs(root, done = () => {}) {
+  root.querySelectorAll('[data-print]').forEach(b => b.onclick = () => printBill(report.bills.find(x => x.no == b.dataset.print)));
+  root.querySelectorAll('[data-redate]').forEach(x => x.onclick = () => { done(); redateBill(report.bills.find(b => b.no == x.dataset.redate)); });
   // owner only (the server checks too): fix how a bill was paid, or reopen it to take payment again
-  $('billBody').querySelectorAll('[data-method]').forEach(s => s.onchange = async () => {
+  root.querySelectorAll('[data-method]').forEach(s => s.onchange = async () => {
     const no = Number(s.dataset.method), bill = report.bills.find(x => x.no === no);
     if (!confirm(`เปลี่ยนวิธีชำระบิล #${billNo(bill)} จาก "${METHODS[bill.method]}" เป็น "${METHODS[s.value]}"?`)) { s.value = bill.method; return; }
-    if (await act('bill_method', { no, method: s.value })) { toast(`บิล #${billNo(bill)} เปลี่ยนเป็น ${METHODS[s.value]} แล้ว`); loadReport(); }
+    if (await act('bill_method', { no, method: s.value })) { done(); toast(`บิล #${billNo(bill)} เปลี่ยนเป็น ${METHODS[s.value]} แล้ว`); loadReport(); }
     else s.value = bill.method;
   });
-  $('billBody').querySelectorAll('[data-reopen]').forEach(b => b.onclick = async () => {
+  root.querySelectorAll('[data-reopen]').forEach(b => b.onclick = async () => {
     const no = Number(b.dataset.reopen), bill = report.bills.find(x => x.no === no);
     if (!confirm(`เปิดบิล #${billNo(bill)} (โต๊ะ ${bill.table} ฿${baht(bill.total)}) เพื่อชำระใหม่?\nบิลนี้จะถูกบันทึกเป็น "ยกเลิก" และรายการทั้งหมดจะกลับไปที่โต๊ะ ${bill.table}`)) return;
     const d = await act('bill_reopen', { no });
     if (!d) return;
+    done();
     toast(`เปิดบิล #${billNo(bill)} ที่โต๊ะ ${bill.table} แล้ว — ชำระใหม่ได้เลย`);
     loadReport();
     showTab('tables'); openTable(d.table);
   });
-  $('billBody').querySelectorAll('[data-void]').forEach(b => b.onclick = async () => {
+  root.querySelectorAll('[data-void]').forEach(b => b.onclick = async () => {
     const shown = billNo(report.bills.find(x => x.no == b.dataset.void));
-    if (confirm(`ยกเลิกบิล #${shown}? ยอดจะไม่นับรวมยอดขาย`) && await act('bill_void', { no: Number(b.dataset.void) })) { loadReport(); toast(`ยกเลิกบิล #${shown} แล้ว`); }
+    if (confirm(`ยกเลิกบิล #${shown}? ยอดจะไม่นับรวมยอดขาย`) && await act('bill_void', { no: Number(b.dataset.void) })) { done(); loadReport(); toast(`ยกเลิกบิล #${shown} แล้ว`); }
   });
 }
 // tap a bill number: its dishes, totals and how it was paid
@@ -86,7 +100,9 @@ function viewBill(b) {
       <tr><td><b>ยอดสุทธิ</b></td><td class="num"><b>฿${baht(b.total)}</b></td></tr>
       ${b.method === 'mixed' ? `<tr><td>เงินสด</td><td class="num">${baht(b.total - b.transfer)}</td></tr><tr><td>โอน</td><td class="num">${baht(b.transfer)}</td></tr>` : ''}
       <tr><td>${b.void ? 'ยกเลิกแล้ว' : 'ชำระโดย ' + (METHODS[b.method] || b.method)}</td><td class="num">${b.cash != null ? `รับ ${baht(b.cash)} · ทอน ${baht(b.change)}` : ''}</td></tr>
-    </table>`;
+    </table>
+    <div class="bvacts">${billActs(b, false)}</div>`;
+  bindBillActs($('bvBody'), () => $('billView').classList.add('hidden'));
   $('bvPrint').onclick = () => printBill(b);
   $('billView').classList.remove('hidden');
 }
