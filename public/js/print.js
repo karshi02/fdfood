@@ -29,7 +29,7 @@ async function printBill(b, isPreview) {
   $('receipt').innerHTML = `
     <div class="c"><h3>${esc(s.name)}</h3>${s.addr ? `<div>${esc(s.addr)}</div>` : ''}${s.phone ? `<div>โทร ${esc(s.phone)}</div>` : ''}</div>
     <hr>
-    <div>${isPreview ? '<b>ใบแจ้งยอด (ยังไม่ชำระ)</b>' : `ใบเสร็จ #${b.no}${b.void ? ' (ยกเลิก)' : ''}`}</div>
+    <div>${isPreview ? '<b>ใบแจ้งยอด (ยังไม่ชำระ)</b>' : `ใบเสร็จ #${billNo(b)}${b.void ? ' (ยกเลิก)' : ''}`}</div>
     <div>โต๊ะ ${esc(b.table)} · ${(b.date instanceof Date ? b.date : toDate(b.date)).toLocaleString('th-TH')}</div>
     ${b.cashier ? `<div>แคชเชียร์ ${esc(b.cashier)}</div>` : ''}
     <hr>

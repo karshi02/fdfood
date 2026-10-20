@@ -7,6 +7,8 @@ const METHODS = { cash: 'เงินสด', transfer: 'โอน', other: 'อ
 const PAY_METHODS = ['cash', 'transfer', 'other'];
 const pad = n => String(n).padStart(2, '0');
 const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
+// bills are stored as yy (พ.ศ.) + 5-digit counter (6900001); people only see the counter: 00001
+const billNo = b => String((b.bno || b.no) % 100000).padStart(5, '0');
 const toDate = s => new Date(String(s).replace(' ', 'T')); // MySQL DATETIME -> local Date
 
 let S = { settings: {}, menu: [], tables: [], permList: {} }, ME = null, ver = 0;

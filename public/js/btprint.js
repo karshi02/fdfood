@@ -456,7 +456,7 @@ const BT = (() => {
     if (s.addr) L.center(s.addr, Z.small);
     if (s.phone) L.center(`โทร ${s.phone}`, Z.small);
     L.rule();
-    L.center(isPreview ? 'ใบแจ้งยอด (ยังไม่ชำระ)' : `ใบเสร็จรับเงิน #${b.no}${b.void ? ' (ยกเลิก)' : ''}`, Z.base, true);
+    L.center(isPreview ? 'ใบแจ้งยอด (ยังไม่ชำระ)' : `ใบเสร็จรับเงิน #${billNo(b)}${b.void ? ' (ยกเลิก)' : ''}`, Z.base, true);
     const when = (b.date instanceof Date ? b.date : toDate(b.date)).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
     L.pair('โต๊ะ', String(b.table), Z.base, true);
     L.pair('วันที่', when, Z.base);
@@ -492,7 +492,7 @@ const BT = (() => {
     L.rule();
     for (const i of d.top) L.pair(`${i.qty} x ${i.name}`, baht(i.amt), Z.item, true);
     L.rule();
-    for (const b of d.bills) L.pair(`#${b.no} ${d.time(b)} โต๊ะ ${b.table}`, b.void ? 'ยกเลิก' : baht(b.total), Z.small);
+    for (const b of d.bills) L.pair(`#${billNo(b)} ${d.time(b)} โต๊ะ ${b.table}`, b.void ? 'ยกเลิก' : baht(b.total), Z.small);
     L.rule();
     L.pair('จำนวนบิล', String(d.ok.length), Z.base);
     for (const [k, v] of Object.entries(d.byMethod)) L.pair(METHODS[k] || k, baht(v), Z.base);
