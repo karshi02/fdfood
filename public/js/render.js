@@ -68,7 +68,7 @@ function renderMenu() {
       <button class="stock${m.out ? ' off' : ''}" data-out="${m.id}" aria-pressed="${m.out}">${m.out ? 'หมด' : 'มีขาย'}</button>
       ${!editable ? '' : m.pending
         ? `<div class="mact"><button class="btn brand sm" data-ok="${m.id}">อนุมัติ</button><button class="btn ghost sm" data-no="${m.id}">ไม่อนุมัติ</button></div>`
-        : `<div class="mact"><button class="btn ghost sm" data-edit="${m.id}">แก้ไข</button><button class="btn ghost sm" data-del="${m.id}">ลบ</button></div>`}
+        : `<div class="mact"><button class="btn ghost sm" data-edit="${m.id}">แก้ไข</button><button class="btn danger sm" data-del="${m.id}">ลบ</button></div>`}
     </div>`).join('')}`).join('')
     || `<p class="muted">${S.menu.length ? 'ไม่พบเมนูที่ค้นหา' : 'ยังไม่มีเมนู — เพิ่มด้านบน'}</p>`;
   $('menuList').querySelectorAll('[data-ok]').forEach(b => b.onclick = () => approveDish(Number(b.dataset.ok)));

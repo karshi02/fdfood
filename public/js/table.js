@@ -26,7 +26,7 @@ function renderModal() {
       </div>
       <div class="actions">
         <button class="btn" id="rSave">${t.status === 'resv' ? 'บันทึกการจอง' : 'จองโต๊ะ'}</button>
-        ${t.status === 'resv' ? '<button class="btn ghost" id="rCancel">ยกเลิกการจอง</button>' : ''}
+        ${t.status === 'resv' ? '<button class="btn danger" id="rCancel">ยกเลิกการจอง</button>' : ''}
         <button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button>
       </div></div>`;
     $('rSave').onclick = async () => {
@@ -66,7 +66,7 @@ function renderModal() {
           <div class="muted">฿${baht(i.price)} · <button class="note" data-note="${i.id}">${i.note ? esc(i.note) : '+ หมายเหตุ'}</button></div></td>
         <td><span class="qty"><button data-q="${i.id}" data-d="-1">−</button>${i.qty}<button data-q="${i.id}" data-d="1">+</button></span></td>
         <td class="num">${baht(i.price * i.qty)}</td></tr>`).join('') || '<tr><td class="muted">ยังไม่มีรายการ</td></tr>'}</tbody></table>
-      <div class="actions"><button class="btn sm" id="kitchen" ${pendingQty ? '' : 'disabled'}>ส่งครัว (${pendingQty})</button>
+      <div class="actions"><button class="btn ok sm" id="kitchen" ${pendingQty ? '' : 'disabled'}>ส่งครัว (${pendingQty})</button>
         ${can('discount') ? `<button class="btn ghost sm" id="disc" ${has ? '' : 'disabled'}>${t.discount ? 'แก้ส่วนลด' : 'ส่วนลด'}</button>` : ''}</div>
       <div style="margin-top:10px">
         <div class="line"><span>รวม</span><span>${baht(c.sub)}</span></div>
@@ -89,8 +89,8 @@ function renderModal() {
       </div>` : ''}
       ${wait ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">มีเมนูใหม่รออนุมัติราคา — ${can('menu') ? 'กด "อนุมัติ" ที่รายการ' : 'ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ'} ก่อนเช็คบิล/ชำระเงิน</p>` : ''}
       <div class="actions paybar">
-        <button class="btn brand lg" id="pay" ${billable ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
-        <button class="btn ghost" style="flex:1" id="preview" ${billable ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
+        <button class="btn ok lg" id="pay" ${billable ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
+        <button class="btn warn" style="flex:1" id="preview" ${billable ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
       </div>
     </div></div>
     <button class="btn brand jump" id="jump"><span>ดูรายการ / ชำระเงิน (${t.order.reduce((a, i) => a + i.qty, 0)})</span><span>฿${baht(c.total)}</span></button>`;

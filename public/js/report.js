@@ -28,7 +28,7 @@ function renderReport() {
     <td>#${b.no}</td><td>${toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td><td>${esc(b.table)}</td>
     <td>${esc(b.cashier)}</td><td>${b.void ? 'ยกเลิก' : METHODS[b.method]}</td><td class="num">${baht(b.total)}</td>
     <td class="num" style="white-space:nowrap"><button class="btn ghost sm" data-print="${b.no}">พิมพ์ซ้ำ</button>
-    ${b.void ? '' : `<button class="btn ghost sm" data-void="${b.no}">ยกเลิก</button>`}</td></tr>`).join('')
+    ${b.void ? '' : `<button class="btn danger sm" data-void="${b.no}">ยกเลิก</button>`}</td></tr>`).join('')
     || '<tr><td colspan="7" class="muted">ไม่มีบิลวันนี้</td></tr>';
   $('topBody').innerHTML = d.top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${i.qty}</td><td class="num">${baht(i.amt)}</td></tr>`).join('')
     || '<tr><td colspan="3" class="muted">-</td></tr>';

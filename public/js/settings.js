@@ -7,7 +7,7 @@ function renderSettings() {
     $('sService').value = s.service; $('sVat').value = s.vat; $('sPP').value = s.promptpay; $('sFooter').value = s.footer;
   }
   $('tblBody').innerHTML = S.tables.map(t => `<tr><td>โต๊ะ ${esc(t.name)}</td><td class="num">
-    <button class="btn ghost sm" data-tdel="${t.id}" ${t.status !== 'free' ? 'disabled title="โต๊ะไม่ว่าง"' : ''}>ลบ</button></td></tr>`).join('');
+    <button class="btn danger sm" data-tdel="${t.id}" ${t.status !== 'free' ? 'disabled title="โต๊ะไม่ว่าง"' : ''}>ลบ</button></td></tr>`).join('');
   $('tblBody').querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { if (confirm('ลบโต๊ะนี้?')) act('table_del', { id: Number(b.dataset.tdel) }).then(d => d && toast('ลบโต๊ะแล้ว')); });
 }
 $('sSave').onclick = async () => {
@@ -60,7 +60,7 @@ async function loadUsers() {
   $('userBody').innerHTML = users.map(u => `<tr><td>${esc(u.name)} <span class="muted">@${esc(u.username)}</span></td>
     <td><span class="role">${u.role === 'admin' ? 'เจ้าของร้าน' : 'พนักงาน'}</span><div class="muted">${esc(permNames(u))}</div></td>
     <td class="num" style="white-space:nowrap">${manageable(u) ? `<button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>` : ''}
-    ${u.id !== ME.id && manageable(u) ? `<button class="btn ghost sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
+    ${u.id !== ME.id && manageable(u) ? `<button class="btn danger sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
   $('userBody').querySelectorAll('[data-uedit]').forEach(b => b.onclick = () => {
     const u = users.find(x => x.id == b.dataset.uedit);
     $('uId').value = u.id; $('uUser').value = u.username; $('uName').value = u.name; $('uPass').value = '';
