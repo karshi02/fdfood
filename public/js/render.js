@@ -71,14 +71,21 @@ function renderTables() {
 // has the bill changed since it was printed for the customer?
 const sameTotal = t => Math.abs(calc(t.order, t.discount).total - t.checked.total) < 0.005;
 
-let menuCat = '';
+// categories picked as filters; empty = all. Tapping a chip toggles it, "ทั้งหมด" clears them
+const menuCats = new Set();
 function renderMenu() {
   const q = $('menuSearch').value.trim().toLowerCase(), outOnly = $('menuOutOnly').checked, edit = Number($('mId').value);
   const all = cats();
-  if (menuCat && !all.includes(menuCat)) menuCat = '';
-  $('menuCats').innerHTML = ['', ...all].map(k => `<button class="chip ${k === menuCat ? 'on' : ''}" data-mcat="${esc(k)}">${esc(k || 'ทั้งหมด')}</button>`).join('');
-  $('menuCats').querySelectorAll('[data-mcat]').forEach(x => x.onclick = () => { menuCat = x.dataset.mcat; renderMenu(); });
-  // picking a category shows its rename / delete buttons to whoever may edit the menu
+  menuCats.forEach(k => { if (!all.includes(k)) menuCats.delete(k); });
+  $('menuCats').innerHTML = ['', ...all].map(k => { const on = k ? menuCats.has(k) : !menuCats.size;
+    return `<button class="chip ${on ? 'on' : ''}" data-mcat="${esc(k)}" aria-pressed="${on}">${esc(k || 'ทั้งหมด')}</button>`; }).join('');
+  $('menuCats').querySelectorAll('[data-mcat]').forEach(x => x.onclick = () => {
+    const k = x.dataset.mcat;
+    if (!k) menuCats.clear(); else if (!menuCats.delete(k)) menuCats.add(k);
+    renderMenu();
+  });
+  // exactly one picked category shows its rename / delete buttons to whoever may edit the menu
+  const menuCat = menuCats.size === 1 ? [...menuCats][0] : '';
   $('catBar').classList.toggle('hidden', !menuCat || !can('menu'));
   if (menuCat && can('menu')) {
     $('catBar').innerHTML = `<b>หมวด "${esc(menuCat)}" · ${S.menu.filter(m => m.cat === menuCat).length} เมนู</b>
@@ -86,7 +93,7 @@ function renderMenu() {
     $('catRen').onclick = () => renameCat(menuCat);
     $('catDel').onclick = () => deleteCat(menuCat);
   }
-  const list = S.menu.filter(m => (!menuCat || m.cat === menuCat) && (!outOnly || m.out)
+  const list = S.menu.filter(m => (!menuCats.size || menuCats.has(m.cat)) && (!outOnly || m.out)
     && (!q || m.name.toLowerCase().includes(q) || m.cat.toLowerCase().includes(q)));
   const outN = S.menu.filter(m => m.out).length;
   $('menuCount').textContent = `แสดง ${list.length} จาก ${S.menu.length} รายการ` + (outN ? ` · หมด ${outN}` : '');
@@ -148,14 +155,14 @@ async function renameCat(from) {
   if (!to) return alert('ใส่ชื่อหมวด (ถ้าจะเอาหมวดออก กด "ลบหมวด")');
   if (to === from) return;
   if (cats().includes(to) && !confirm(`มีหมวด "${to}" อยู่แล้ว — รวมเมนูหมวด "${from}" เข้าไปใน "${to}"?`)) return;
-  menuCat = to; // follow the category to its new name
+  if (menuCats.delete(from)) menuCats.add(to); // follow the category to its new name
   const d = await act('cat_rename', { from, to });
   if (d) toast(`เปลี่ยนหมวด "${from}" เป็น "${to}" แล้ว (${d.moved} เมนู)`);
 }
 async function deleteCat(from) {
   if (!confirm(`ลบหมวด "${from}"?
 เมนูในหมวดนี้ไม่ถูกลบ แค่ย้ายไปอยู่ "ไม่มีหมวด"`)) return;
-  menuCat = '';
+  menuCats.delete(from);
   const d = await act('cat_rename', { from, to: '' });
   if (d) toast(`ลบหมวด "${from}" แล้ว · ${d.moved} เมนูย้ายไป "ไม่มีหมวด"`);
 }

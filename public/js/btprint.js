@@ -469,6 +469,26 @@ const BT = (() => {
     return L.render();
   }
 
+  // the day's big bill: every dish sold that day added up, each bill listed, totals by payment method
+  function drawDay(d) {
+    const s = S.settings, L = layout(state.paper), Z = L.Z;
+    L.center(s.name || 'โคขุน', Z.title, true);
+    L.center(`บิลรวมทั้งวัน ${d.date}`, Z.base, true);
+    L.rule();
+    for (const i of d.top) L.pair(`${i.qty} x ${i.name}`, baht(i.amt), Z.item, true);
+    L.rule();
+    for (const b of d.bills) L.pair(`#${b.no} ${d.time(b)} โต๊ะ ${b.table}`, b.void ? 'ยกเลิก' : baht(b.total), Z.small);
+    L.rule();
+    L.pair('จำนวนบิล', String(d.ok.length), Z.base);
+    for (const [k, v] of Object.entries(d.byMethod)) L.pair(METHODS[k] || k, baht(v), Z.base);
+    if (d.disc) L.pair('ส่วนลดรวม', `-${baht(d.disc)}`, Z.base);
+    L.gap(4);
+    L.pair('ยอดสุทธิ', `฿${baht(d.total)}`, Z.big, true);
+    L.rule();
+    L.center(`พิมพ์ ${new Date().toLocaleString('th-TH')} · ${ME ? ME.name : ''}`, Z.small);
+    return L.render();
+  }
+
   // kitchen ticket: big table name and dishes, no logo or prices
   function drawKitchen(tableName, items) {
     const L = layout(state.paper), Z = L.Z;
@@ -509,6 +529,7 @@ const BT = (() => {
     test: () => printBytes(raster(drawTest()), true),
     printBill: async (b, isPreview) => printBytes(raster(await drawBill(b, isPreview)), false),
     printKitchen: (name, items) => printBytes(raster(drawKitchen(name, items)), false),
+    printDay: d => printBytes(raster(drawDay(d)), false),
     preview: async b => drawBill(b, false),
   };
 })();

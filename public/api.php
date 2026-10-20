@@ -647,6 +647,14 @@ try {
         need('void');
         tx(fn() => q('UPDATE bills SET void = 1, void_by = ? WHERE id = ?', [$me['id'], (int)($in['no'] ?? 0)]));
         break;
+    case 'bill_date':
+        // the owner may move a bill to another payment date-time (e.g. a sale keyed in the next morning)
+        need();
+        if ($me['role'] !== 'admin') fail('เฉพาะเจ้าของร้านเท่านั้น', 403);
+        $when = str($in, 'date', 16);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $when) || !strtotime($when)) fail('วันเวลาไม่ถูกต้อง (เช่น 2026-10-20 18:30)');
+        if (!tx(fn() => q('UPDATE bills SET created_at = ? WHERE id = ?', [$when . ':00', (int)($in['no'] ?? 0)])->rowCount())) fail('ไม่พบบิล หรือวันเวลาเดิม');
+        break;
     case 'users':
         need('users');
         // ago = seconds since the user's last request (null = signed out / never), measured on the DB clock
