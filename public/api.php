@@ -5,8 +5,15 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 // behind the production nginx the browser talks https: keep the session cookie off plain http
 $https = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
-session_set_cookie_params(['httponly' => true, 'samesite' => 'Strict', 'secure' => $https]);
+// stay signed in for 30 days of inactivity (matches session.gc_maxlifetime in the Dockerfile)
+const SESSION_TTL = 2592000;
+session_set_cookie_params(['lifetime' => SESSION_TTL, 'httponly' => true, 'samesite' => 'Strict', 'secure' => $https]);
 session_start();
+// sliding expiry: push the cookie's expiry forward on use (at most hourly, to keep responses small)
+if (isset($_SESSION['uid']) && ($_SESSION['cookie_at'] ?? 0) < time() - 3600) {
+    $_SESSION['cookie_at'] = time();
+    setcookie(session_name(), session_id(), ['expires' => time() + SESSION_TTL, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict', 'secure' => $https]);
+}
 
 class AppError extends Exception {}
 function out(array $d, int $code = 200): never { http_response_code($code); echo json_encode($d, JSON_UNESCAPED_UNICODE); exit; }

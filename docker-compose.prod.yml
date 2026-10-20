@@ -1,22 +1,43 @@
-# Production: app only on localhost (host nginx proxies to it), no phpMyAdmin,
-# MySQL tuned for a small shared server.
-# Run: docker compose -f docker-compose.prod.yml up -d --build
+# Production: host nginx load-balances app (3020) + app2 (3021), no phpMyAdmin,
+# MariaDB tuned for a small shared server.
+#
+# Zero-downtime layout:
+#   releases/<git-hash>/   one folder per deploy (the old public/ contents)
+#   releases/current       relative symlink to the live release; Apache serves it
+# Code deploy = unpack a new release + swap the symlink. No container restarts.
+# Image change = recreate app, then app2 (nginx sends traffic to whichever is up).
+# The db service is never restarted by a deploy; its data lives in the dbdata volume.
+x-app: &app
+  build: .
+  image: fdfood-app
+  volumes:
+    - ./releases:/var/www/releases:ro
+    - sessions:/var/lib/php/sessions
+  environment:
+    APACHE_DOCUMENT_ROOT: /var/www/releases/current
+    DB_HOST: db
+    DB_NAME: fdfood
+    DB_USER: fdfood
+    DB_PASS: ${DB_PASS}
+  depends_on:
+    db:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost/"]
+    interval: 10s
+    retries: 3
+  restart: unless-stopped
+
 services:
   app:
-    build: .
+    <<: *app
     ports:
       - "127.0.0.1:3020:80"
-    volumes:
-      - ./public:/var/www/html:ro
-    environment:
-      DB_HOST: db
-      DB_NAME: fdfood
-      DB_USER: fdfood
-      DB_PASS: ${DB_PASS}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+
+  app2:
+    <<: *app
+    ports:
+      - "127.0.0.1:3021:80"
 
   db:
     # MySQL 8.4 needs an x86-64-v2 CPU; the production box doesn't have one
@@ -41,3 +62,4 @@ services:
 
 volumes:
   dbdata:
+  sessions:
