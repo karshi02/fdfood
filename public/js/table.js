@@ -74,6 +74,7 @@ function renderModal() {
         ${c.service ? `<div class="line"><span>Service ${S.settings.service}%</span><span>${baht(c.service)}</span></div>` : ''}
         ${c.vat ? `<div class="line"><span>VAT ${S.settings.vat}%</span><span>${baht(c.vat)}</span></div>` : ''}
         <div class="total"><span>ยอดสุทธิ</span><span>฿${baht(c.total)}</span></div>
+        ${wait ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">มีเมนูใหม่รออนุมัติราคา — ${can('menu') ? 'กด "อนุมัติ" ที่รายการ' : 'ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ'} ก่อนเช็คบิล/ชำระเงิน</p>` : ''}
       </div>
       ${t.checked ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">${sameTotal(t)
         ? `เช็คบิลแล้ว ${toDate(t.checked.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} · รอชำระ`
@@ -87,7 +88,6 @@ function renderModal() {
         ${has ? '' : '<button class="btn danger" id="cancelOpen">ยกเลิกเปิดโต๊ะ</button>'}
         ${has && can('void') ? '<button class="btn danger" id="voidTable">ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</button>' : ''}
       </div>` : ''}
-      ${wait ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">มีเมนูใหม่รออนุมัติราคา — ${can('menu') ? 'กด "อนุมัติ" ที่รายการ' : 'ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ'} ก่อนเช็คบิล/ชำระเงิน</p>` : ''}
       <div class="actions paybar">
         <button class="btn ok lg" id="pay" ${billable ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
         <button class="btn warn" style="flex:1" id="preview" ${billable ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>

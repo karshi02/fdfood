@@ -6,7 +6,8 @@
   --ok: #15803d; --ok-bg: #15803d; --ok-bg-2: #166534; /* white text >= 4.5:1 */ --ok-soft: #ecfdf3; --ok-line: #bbf7d0;
   --warn: #b45309; --warn-soft: #fff7e6; --warn-line: #fcd9a8;
   --danger: #b91c1c; --danger-soft: #fef2f2; --danger-soft-2: #fee2e2; --danger-line: #fecaca;
-  --free: #16a34a; --busy: #b4492a; --resv: #d97706;
+  /* used as small status text: darker steps so 13px text clears 4.5:1 on white (#16a34a/#d97706 were ~3.2:1) */
+  --free: #15803d; --busy: #b4492a; --resv: #b45309;
   /* dashboard pair checked for colour-blind contrast: blue income vs terracotta expense */
   --inc: #2563eb; --exp: #c2410c;
   --ring: rgba(180, 73, 42, .18); --header-bg: rgba(255, 255, 255, .9);
