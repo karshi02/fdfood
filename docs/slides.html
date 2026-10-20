@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>โคขุน POS คู่มือ</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+@page { size: 1280px 720px; margin: 0; }
+:root {
+  --bg: #f6f8fb; --card: #fff; --ink: #0f172a; --muted: #64748b; --line: #e6ebf2;
+  --brand: #2563eb; --brand-ink: #1d4ed8; --brand-soft: #eef4ff;
+  --free: #16a34a; --busy: #2563eb; --resv: #d97706; --danger: #dc2626; --exp: #ea580c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.s { width: 1280px; height: 720px; padding: 56px 72px; position: relative; overflow: hidden; page-break-after: always; background: var(--bg); display: flex; flex-direction: column; }
+.s:last-child { page-break-after: auto; }
+.kick { font-size: 15px; font-weight: 600; color: var(--brand); letter-spacing: .02em; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+.kick::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--brand); }
+h1 { font-size: 40px; line-height: 1.25; margin: 0 0 24px; font-weight: 700; }
+h2 { font-size: 22px; margin: 0 0 12px; font-weight: 600; }
+p, li { font-size: 19px; line-height: 1.6; }
+.muted { color: var(--muted); }
+.foot { position: absolute; left: 72px; right: 72px; bottom: 24px; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; flex: 1; min-height: 0; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+ol.steps li { counter-increment: s; position: relative; padding-left: 50px; margin-bottom: 14px; font-size: 18px; line-height: 1.55; }
+ol.steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 600; display: grid; place-items: center; font-size: 16px; }
+ol.steps b { font-weight: 600; }
+.k { display: inline-block; background: var(--brand-soft); color: var(--brand-ink); border-radius: 6px; padding: 0 8px; font-weight: 600; font-size: .92em; }
+.note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 16px; font-size: 16px; line-height: 1.55; }
+.warn { background: #fef2f2; border-color: #fecaca; }
+
+/* mock UI */
+.mock { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(15,23,42,.08); overflow: hidden; font-size: 13px; }
+.mbar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.mbar b { font-size: 14px; margin-right: 8px; display: flex; align-items: center; gap: 6px; }
+.mbar b::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--brand); }
+.mbar span { padding: 4px 9px; border-radius: 7px; color: var(--muted); }
+.mbar span.on { background: var(--brand-soft); color: var(--brand-ink); font-weight: 600; }
+.mbody { padding: 14px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.stat i { display: block; font-style: normal; color: var(--muted); font-size: 11px; }
+.stat b { font-size: 15px; }
+.tbls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tbl { border-radius: 10px; padding: 9px 10px; border: 1px solid var(--line); border-left: 4px solid var(--free); background: #fff; }
+.tbl b { display: block; font-size: 13px; }
+.tbl small { color: var(--muted); font-size: 11px; }
+.tbl .st { font-size: 11px; font-weight: 600; color: var(--free); }
+.tbl.busy { border-left-color: var(--busy); background: #f5f8ff; } .tbl.busy .st { color: var(--busy); }
+.tbl.resv { border-left-color: var(--resv); background: #fffaf0; } .tbl.resv .st { color: var(--resv); }
+.chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; font-size: 12px; background: #fff; }
+.chip.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.mgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mi { border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; font-size: 12px; }
+.mi span { display: block; color: var(--brand-ink); font-weight: 600; }
+.mi.out { opacity: .45; }
+.row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.tag { background: #fff7ed; color: var(--exp); border-radius: 5px; padding: 0 5px; font-size: 10.5px; margin-left: 4px; font-weight: 600; }
+.qty { border: 1px solid var(--line); border-radius: 7px; padding: 0 6px; color: var(--muted); }
+.tot { display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; margin: 8px 0; }
+.btnm { border-radius: 9px; padding: 8px 10px; text-align: center; font-weight: 600; font-size: 12.5px; background: var(--brand-soft); color: var(--brand-ink); }
+.btnm.brand { background: var(--brand); color: #fff; }
+.btnm.danger { background: #fef2f2; color: var(--danger); }
+.grid2 > .mock { align-self: start; }
+.callout { position: absolute; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; border-radius: 99px; width: 26px; height: 26px; display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; }
+.legend { display: flex; gap: 18px; font-size: 16px; margin-top: 14px; }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
+
+table.t { width: 100%; border-collapse: collapse; font-size: 16px; }
+table.t th, table.t td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+table.t th { color: var(--muted); font-weight: 500; font-size: 14px; }
+table.t td.c, table.t th.c { text-align: center; }
+.y { color: var(--free); font-weight: 700; } .n { color: #cbd5e1; }
+
+/* cover */
+.cover { background: var(--brand); color: #fff; justify-content: center; }
+.cover h1 { font-size: 76px; margin: 0 0 8px; }
+.cover p { font-size: 26px; opacity: .9; margin: 0; }
+.cover .kick { color: #fff; opacity: .85; font-size: 18px; } .cover .kick::before { background: #fff; }
+.cover .foot { color: rgba(255,255,255,.75); }
+.flow { display: flex; align-items: stretch; gap: 0; margin-top: 18px; }
+.flow .f { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 14px; text-align: center; position: relative; }
+.flow .f b { display: block; font-size: 20px; margin-bottom: 6px; }
+.flow .f span { font-size: 14.5px; color: var(--muted); line-height: 1.45; display: block; }
+.flow .f .n2 { width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft); color: var(--brand-ink); font-weight: 700; display: grid; place-items: center; margin: 0 auto 10px; }
+.flow .arr { width: 30px; display: grid; place-items: center; color: var(--muted); font-size: 22px; }
+.feat b { display: block; font-size: 20px; margin-bottom: 4px; }
+.feat span { font-size: 16px; color: var(--muted); line-height: 1.5; }
+.bars { display: flex; align-items: flex-end; gap: 5px; height: 90px; padding-top: 6px; }
+.bars div { flex: 1; display: flex; gap: 2px; align-items: flex-end; height: 100%; }
+.bars i { flex: 1; background: var(--brand); border-radius: 3px 3px 0 0; }
+.bars i + i { background: var(--exp); }
+</style>
+</head>
+<body>
+
+<!-- 1 cover -->
+<section class="s cover">
+  <div class="kick">คู่มือการใช้งาน · ฉบับร้านค้า</div>
+  <h1>โคขุน POS</h1>
+  <p>ระบบขายหน้าร้านอาหาร: รับออเดอร์ ส่งครัว เก็บเงิน และดูยอดขาย</p>
+  <p style="font-size:20px;margin-top:28px;opacity:.75">ใช้ผ่านเว็บเบราว์เซอร์บนคอมพิวเตอร์ แท็บเล็ต หรือมือถือ ไม่ต้องติดตั้งแอป</p>
+  <div class="foot"><span>fdfood.monky-go.com</span><span>ตุลาคม 2569</span></div>
+</section>
+
+<!-- 2 overview -->
+<section class="s">
+  <div class="kick">ภาพรวม</div>
+  <h1>ระบบนี้ทำอะไรได้บ้าง</h1>
+  <div class="grid3" style="gap:18px">
+    <div class="card feat"><b>ผังโต๊ะแบบสด</b><span>เห็นสถานะทุกโต๊ะ ว่าง / จอง / มีลูกค้า และยอดค้างชำระ อัปเดตทุกเครื่องพร้อมกัน</span></div>
+    <div class="card feat"><b>สั่งอาหารและส่งครัว</b><span>กดเมนูเพื่อสั่ง ใส่หมายเหตุ แล้วพิมพ์ใบสั่งเข้าครัวเฉพาะรายการใหม่</span></div>
+    <div class="card feat"><b>เก็บเงิน 4 ช่องทาง</b><span>เงินสด (คำนวณเงินทอน), พร้อมเพย์ QR, โอน, บัตร พร้อมพิมพ์ใบเสร็จ</span></div>
+    <div class="card feat"><b>ส่วนลด, Service, VAT</b><span>ลดเป็นบาทหรือ % คิด Service charge และ VAT ให้อัตโนมัติ</span></div>
+    <div class="card feat"><b>แดชบอร์ดรายรับ-รายจ่าย</b><span>บันทึกรายจ่าย ดูกำไรรายวัน เมนูทำเงิน และยอดแยกช่องทางชำระ</span></div>
+    <div class="card feat"><b>ผู้ใช้และสิทธิ์</b><span>แยกบัญชีพนักงาน กำหนดว่าใครให้ส่วนลด ยกเลิกบิล หรือดูยอดได้</span></div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>2</span></div>
+</section>
+
+<!-- 3 flow -->
+<section class="s">
+  <div class="kick">ขั้นตอนหลัก</div>
+  <h1>ลูกค้า 1 โต๊ะ ตั้งแต่เข้าร้านจนจ่ายเงิน</h1>
+  <div class="flow">
+    <div class="f"><div class="n2">1</div><b>จองโต๊ะ</b><span>ใส่ชื่อ เบอร์ เวลา จำนวนคน (ถ้ามี)</span></div>
+    <div class="arr">›</div>
+    <div class="f"><div class="n2">2</div><b>เปิดโต๊ะ</b><span>เมื่อลูกค้านั่ง กด "เปิดโต๊ะ / เริ่มสั่งอาหาร"</span></div>
+    <div class="arr">›</div>
+    <div class="f"><div class="n2">3</div><b>สั่งอาหาร</b><span>แตะเมนู ปรับจำนวน ใส่หมายเหตุ</span></div>
+    <div class="arr">›</div>
+    <div class="f"><div class="n2">4</div><b>ส่งครัว</b><span>พิมพ์ใบสั่งเฉพาะรายการใหม่</span></div>
+    <div class="arr">›</div>
+    <div class="f"><div class="n2">5</div><b>เช็คบิล</b><span>พิมพ์ใบแจ้งยอดให้ลูกค้าดู</span></div>
+    <div class="arr">›</div>
+    <div class="f"><div class="n2">6</div><b>ชำระเงิน</b><span>เลือกช่องทาง พิมพ์ใบเสร็จ โต๊ะว่างอัตโนมัติ</span></div>
+  </div>
+  <div class="note" style="margin-top:28px">ทุกคนที่ล็อกอินทำขั้นตอน 1–6 ได้เสมอ ส่วนงานอย่างให้ส่วนลด ลดรายการที่ส่งครัวแล้ว หรือยกเลิกบิล ต้องได้รับสิทธิ์ก่อน (ดูหน้า "ผู้ใช้และสิทธิ์")</div>
+  <div class="foot"><span>โคขุน POS</span><span>3</span></div>
+</section>
+
+<!-- 4 getting started -->
+<section class="s">
+  <div class="kick">เริ่มต้นใช้งาน</div>
+  <h1>เข้าสู่ระบบครั้งแรก</h1>
+  <div class="grid2">
+    <ol class="steps">
+      <li>เปิดเบราว์เซอร์ ไปที่ <b>fdfood.monky-go.com</b><br><span class="muted" style="font-size:16px">ถ้าใช้เครื่องในร้าน: รัน <span class="k">start.bat</span> แล้วเปิด http://localhost:8090 (แท็บเล็ตใน WiFi เดียวกันใช้ http://IP-เครื่อง:8090)</span></li>
+      <li>ล็อกอินด้วยบัญชีเจ้าของร้าน <span class="k">admin</span></li>
+      <li>ครั้งแรก ระบบจะ<b>บังคับเปลี่ยนรหัสผ่าน</b>ก่อนใช้งานส่วนอื่น</li>
+      <li>ไปแท็บ <span class="k">ตั้งค่า</span> ใส่ชื่อร้าน ที่อยู่ เบอร์ พร้อมเพย์</li>
+      <li>สร้างบัญชีให้พนักงานแต่ละคน แล้วเพิ่มเมนูในแท็บ <span class="k">เมนูอาหาร</span></li>
+    </ol>
+    <div>
+      <div class="mock" style="max-width:420px;margin:0 auto">
+        <div class="mbody" style="padding:28px 30px">
+          <div style="font-size:22px;font-weight:700">โคขุน POS</div>
+          <div class="muted" style="margin-bottom:16px">เข้าสู่ระบบ</div>
+          <div class="muted" style="font-size:12px">ชื่อผู้ใช้</div>
+          <div style="border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin:3px 0 10px">admin</div>
+          <div class="muted" style="font-size:12px">รหัสผ่าน</div>
+          <div style="border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin:3px 0 16px">••••••••</div>
+          <div class="btnm brand" style="padding:11px">เข้าสู่ระบบ</div>
+        </div>
+      </div>
+      <div class="note warn" style="margin-top:20px">รหัสผ่านผิด 5 ครั้ง บัญชีจะถูกล็อก 5 นาที · ปุ่ม "เปลี่ยนรหัส" อยู่มุมขวาบนทุกหน้า</div>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>4</span></div>
+</section>
+
+<!-- 5 tables -->
+<section class="s">
+  <div class="kick">แท็บ โต๊ะ</div>
+  <h1>ผังโต๊ะ: หน้าหลักของร้าน</h1>
+  <div class="grid2" style="grid-template-columns:1.25fr 1fr">
+    <div class="mock">
+      <div class="mbar"><b>โคขุน</b><span class="on">โต๊ะ</span><span>เมนูอาหาร</span><span>แดชบอร์ด</span><span>ยอดขาย</span><span>ตั้งค่า</span></div>
+      <div class="mbody">
+        <div class="stats">
+          <div class="stat"><i>โต๊ะว่าง</i><b>9 / 12</b></div>
+          <div class="stat"><i>กำลังทาน</i><b>2 โต๊ะ</b></div>
+          <div class="stat"><i>จองไว้</i><b>1 โต๊ะ</b></div>
+          <div class="stat"><i>ยอดค้างชำระ</i><b>฿1,240</b></div>
+        </div>
+        <div class="tbls">
+          <div class="tbl busy"><b>โต๊ะ 1</b><span class="st">มีลูกค้า</span><br><small>5 รายการ · ฿860 · 45 นาที</small></div>
+          <div class="tbl"><b>โต๊ะ 2</b><span class="st">ว่าง</span></div>
+          <div class="tbl resv"><b>โต๊ะ 3</b><span class="st">จองแล้ว</span><br><small>คุณเอ · 19:00 · 4 คน</small></div>
+          <div class="tbl"><b>โต๊ะ 4</b><span class="st">ว่าง</span></div>
+          <div class="tbl busy"><b>โต๊ะ 5</b><span class="st">มีลูกค้า</span><br><small>2 รายการ · ฿380 · 12 นาที</small></div>
+          <div class="tbl"><b>โต๊ะ 6</b><span class="st">ว่าง</span></div>
+          <div class="tbl"><b>โต๊ะ 7</b><span class="st">ว่าง</span></div>
+          <div class="tbl"><b>โต๊ะ 8</b><span class="st">ว่าง</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p style="margin-top:0">แตะโต๊ะใดก็ได้เพื่อเปิดหน้าต่างของโต๊ะนั้น</p>
+      <div class="legend" style="flex-direction:column;gap:10px">
+        <span><i style="background:var(--free)"></i><b>ว่าง</b> · จองหรือเปิดโต๊ะได้</span>
+        <span><i style="background:var(--resv)"></i><b>จองแล้ว</b> · แสดงชื่อ เวลา จำนวนคน</span>
+        <span><i style="background:var(--busy)"></i><b>มีลูกค้า</b> · จำนวนรายการ ยอด เวลาที่นั่ง และเตือน "ยังไม่ส่งครัว" / "รอชำระ"</span>
+      </div>
+      <p>แถวบนสรุปจำนวนโต๊ะและยอดที่ยังไม่ได้เก็บเงิน</p>
+      <div class="note">ทุกเครื่องเห็นข้อมูลเดียวกัน เครื่องหนึ่งสั่งอาหาร อีกเครื่องเห็นทันที ใช้แท็บเล็ตรับออเดอร์ที่โต๊ะ แล้วเก็บเงินที่เคาน์เตอร์ได้</div>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>5</span></div>
+</section>
+
+<!-- 6 reserve/open -->
+<section class="s">
+  <div class="kick">แท็บ โต๊ะ</div>
+  <h1>จองโต๊ะและเปิดโต๊ะ</h1>
+  <div class="grid2">
+    <div class="card">
+      <h2>จองโต๊ะล่วงหน้า</h2>
+      <ol class="steps">
+        <li>แตะโต๊ะที่ <b>ว่าง</b></li>
+        <li>กรอกชื่อลูกค้า (จำเป็น), เบอร์โทร, วัน-เวลา, จำนวนคน</li>
+        <li>กด <span class="k">จองโต๊ะ</span> โต๊ะเปลี่ยนเป็นสีส้ม</li>
+        <li>แก้ข้อมูลได้ด้วย <span class="k">บันทึกการจอง</span> หรือกด <span class="k">ยกเลิกการจอง</span></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>เปิดโต๊ะเมื่อลูกค้ามาถึง</h2>
+      <ol class="steps">
+        <li>แตะโต๊ะ (ว่าง หรือ จองแล้ว)</li>
+        <li>กด <span class="k">เปิดโต๊ะ / เริ่มสั่งอาหาร</span></li>
+        <li>โต๊ะเปลี่ยนเป็นสีน้ำเงิน และเริ่มนับเวลา</li>
+      </ol>
+      <div class="note" style="margin-top:6px">เปิดผิดโต๊ะ? ถ้ายังไม่ได้สั่งอะไร กด <b>ยกเลิกเปิดโต๊ะ</b> ได้เลย</div>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>6</span></div>
+</section>
+
+<!-- 7 ordering -->
+<section class="s">
+  <div class="kick">หน้าต่างโต๊ะ</div>
+  <h1>สั่งอาหารและส่งครัว</h1>
+  <div class="grid2" style="grid-template-columns:1.2fr 1fr">
+    <div class="mock" style="position:relative">
+      <div class="mbar"><b>โต๊ะ 1</b><span style="margin-left:auto;border:1px solid var(--line)">ย้าย / รวมโต๊ะ</span><span style="border:1px solid var(--line)">ปิด ✕</span></div>
+      <div class="mbody" style="display:grid;grid-template-columns:1.1fr 1fr;gap:12px">
+        <div>
+          <div style="border:1px solid var(--line);border-radius:8px;padding:5px 8px;color:var(--muted);margin-bottom:8px">ค้นหาเมนู...</div>
+          <div class="chips"><span class="chip on">ทั้งหมด</span><span class="chip">ย่าง</span><span class="chip">อีสาน</span><span class="chip">เครื่องดื่ม</span></div>
+          <div class="mgrid">
+            <div class="mi">เนื้อโคขุนย่าง<span>฿290</span></div>
+            <div class="mi">ลิ้นวัวย่าง<span>฿220</span></div>
+            <div class="mi">ลาบเนื้อ<span>฿120</span></div>
+            <div class="mi">ซุปเนื้อ<span>฿150</span></div>
+            <div class="mi out">น้ำตกเนื้อ<span>หมด</span></div>
+            <div class="mi">ข้าวเหนียว<span>฿20</span></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight:600;margin-bottom:4px">รายการที่สั่ง</div>
+          <div class="row"><span>เนื้อโคขุนย่าง<br><small class="muted">ไม่เผ็ด</small></span><span><span class="qty">− 2 +</span> 580</span></div>
+          <div class="row"><span>ลาบเนื้อ<span class="tag">ใหม่ 1</span></span><span><span class="qty">− 1 +</span> 120</span></div>
+          <div class="row"><span>ข้าวเหนียว<span class="tag">ใหม่ 3</span></span><span><span class="qty">− 3 +</span> 60</span></div>
+          <div style="display:flex;gap:6px;margin-top:8px"><div class="btnm" style="flex:1">ส่งครัว (4)</div><div class="btnm" style="flex:1;background:#fff;border:1px solid var(--line);color:var(--ink)">ส่วนลด</div></div>
+          <div class="tot"><span>ยอดสุทธิ</span><span>฿760</span></div>
+        </div>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><b>เลือกหมวด หรือค้นหา</b> แล้วแตะเมนูเพื่อสั่ง แตะซ้ำ = เพิ่มจำนวน (เมนูที่ตั้ง "หมด" จะกดไม่ได้)</li>
+      <li>ไม่มีเมนูที่ลูกค้าต้องการ? คนที่มีสิทธิ์แก้เมนูกด <span class="k">+ เมนูใหม่</span> แล้ว "บันทึก + สั่งเลย"</li>
+      <li>ปรับจำนวนด้วย − / + และแตะ <b>+ หมายเหตุ</b> เช่น ไม่เผ็ด ไม่ใส่ผัก</li>
+      <li>กด <span class="k">ส่งครัว</span> ระบบพิมพ์เฉพาะรายการที่มีป้าย <b>ใหม่</b></li>
+    </ol>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>7</span></div>
+</section>
+
+<!-- 8 discount, move -->
+<section class="s">
+  <div class="kick">หน้าต่างโต๊ะ</div>
+  <h1>ส่วนลด, ย้ายโต๊ะ และรวมบิล</h1>
+  <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="card">
+      <h2>ส่วนลด</h2>
+      <p style="font-size:17px;margin:0 0 10px">กด <span class="k">ส่วนลด</span> แล้วพิมพ์</p>
+      <p style="font-size:17px;margin:0"><b>50</b> = ลด 50 บาท<br><b>10%</b> = ลด 10 เปอร์เซ็นต์<br>เว้นว่าง = ลบส่วนลด</p>
+      <p class="muted" style="font-size:15px;margin-bottom:0">ต้องมีสิทธิ์ "ให้ส่วนลด"</p>
+    </div>
+    <div class="card">
+      <h2>ย้าย / รวมโต๊ะ</h2>
+      <p style="font-size:17px;margin:0 0 10px">กด <span class="k">ย้าย / รวมโต๊ะ</span> มุมบน แล้วพิมพ์ชื่อโต๊ะปลายทาง</p>
+      <p style="font-size:17px;margin:0">โต๊ะปลายทาง<b>ว่าง</b> = ย้ายทั้งโต๊ะ<br>โต๊ะปลายทาง<b>มีลูกค้า</b> = รวมรายการเป็นบิลเดียว</p>
+      <p class="muted" style="font-size:15px;margin-bottom:0">ย้ายไปโต๊ะที่จองไว้ไม่ได้ · ถ้าโต๊ะต้นทางมีส่วนลด ต้องลบส่วนลดก่อนรวม</p>
+    </div>
+    <div class="card">
+      <h2>ลดรายการ</h2>
+      <p style="font-size:17px;margin:0 0 10px">กด <b>−</b> ที่รายการ ถ้ายังไม่ส่งครัว ลดได้ทันที</p>
+      <p style="font-size:17px;margin:0">ถ้าส่งครัวไปแล้ว ระบบถามยืนยันก่อน</p>
+      <p class="muted" style="font-size:15px;margin-bottom:0">ต้องมีสิทธิ์ "ลดรายการที่ส่งครัวแล้ว"</p>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>8</span></div>
+</section>
+
+<!-- 9 payment -->
+<section class="s">
+  <div class="kick">หน้าต่างโต๊ะ</div>
+  <h1>เช็คบิลและรับชำระเงิน</h1>
+  <div class="grid2" style="grid-template-columns:1fr 1.15fr">
+    <div class="mock">
+      <div class="mbody">
+        <div class="row" style="border:0"><span>รวม</span><span>760.00</span></div>
+        <div class="row" style="border:0"><span>ส่วนลด 10%</span><span>-76.00</span></div>
+        <div class="row" style="border:0"><span>Service 10%</span><span>68.40</span></div>
+        <div class="tot" style="border-top:1px solid var(--line);padding-top:8px"><span>ยอดสุทธิ</span><span>฿752.40</span></div>
+        <div class="chips"><span class="chip on">เงินสด</span><span class="chip">พร้อมเพย์/QR</span><span class="chip">โอน</span><span class="chip">บัตร</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><small class="muted">รับเงิน (บาท)</small><div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px">1000</div></div>
+          <div><small class="muted">เงินทอน</small><div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--bg)">247.60</div></div>
+        </div>
+        <div class="chips" style="margin-top:8px"><span class="chip">100</span><span class="chip">500</span><span class="chip">1000</span><span class="chip">พอดี</span></div>
+        <div class="btnm brand" style="padding:11px;font-size:14px">ชำระเงิน + พิมพ์บิล · ฿752.40</div>
+        <div class="btnm" style="margin-top:6px;background:#fff;border:1px solid var(--line);color:var(--ink)">เช็คบิล + พิมพ์</div>
+      </div>
+    </div>
+    <ol class="steps">
+      <li>ลูกค้าขอบิล: กด <span class="k">เช็คบิล + พิมพ์</span> ได้ใบแจ้งยอด (มี QR พร้อมเพย์ถ้าตั้งไว้) โต๊ะขึ้นว่า "รอชำระ" (ถ้าสั่งเพิ่มภายหลัง ระบบเตือนให้พิมพ์ใหม่)</li>
+      <li>เลือกช่องทางชำระ<br><b>เงินสด</b> ใส่ยอดที่รับหรือกดปุ่มลัด ระบบคิดเงินทอน<br><b>พร้อมเพย์/QR</b> แสดง QR พร้อมยอดให้ลูกค้าสแกน</li>
+      <li>กด <span class="k">ชำระเงิน + พิมพ์บิล</span> และยืนยัน ระบบพิมพ์ใบเสร็จและปิดโต๊ะ</li>
+    </ol>
+  </div>
+  <div class="note warn" style="margin-top:14px">ลูกค้าไม่จ่าย / เปิดบิลผิด: ผู้มีสิทธิ์ "ยกเลิกบิล" กด <b>ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</b> รายการจะถูกบันทึกเป็นบิลยกเลิกในยอดขาย ไม่หายไปเฉยๆ</div>
+  <div class="foot"><span>โคขุน POS</span><span>9</span></div>
+</section>
+
+<!-- 10 menu -->
+<section class="s">
+  <div class="kick">แท็บ เมนูอาหาร</div>
+  <h1>จัดการเมนูและราคา</h1>
+  <div class="grid2">
+    <div>
+      <div class="card" style="margin-bottom:18px">
+        <h2>เพิ่มทีละรายการ</h2>
+        <p style="font-size:17px;margin:0">กรอกชื่อเมนู ราคา หมวด แล้วกด <span class="k">บันทึก</span> · กด <span class="k">แก้ไข</span> ท้ายรายการเพื่อเปลี่ยนชื่อ/ราคา</p>
+      </div>
+      <div class="card">
+        <h2>เพิ่มหลายรายการพร้อมกัน</h2>
+        <p style="font-size:17px;margin:0 0 10px">กด <span class="k">+ เพิ่มหลายรายการ</span> พิมพ์บรรทัดละเมนู: <b>ชื่อ ราคา หมวด</b></p>
+        <div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-family:Consolas,monospace;font-size:15px;line-height:1.6">ลาบหมู 70 อีสาน<br>ส้มตำไทย 60 อีสาน<br>น้ำเปล่า 15 เครื่องดื่ม</div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:18px">
+        <h2>ของหมด</h2>
+        <p style="font-size:17px;margin:0">กดปุ่ม <span class="k">มีขาย</span> ให้เป็น <span class="k" style="background:#fef2f2;color:var(--danger)">หมด</span> เมนูนั้นจะกดสั่งไม่ได้ทุกเครื่อง กดอีกครั้งเมื่อมีของ</p>
+        <p class="muted" style="font-size:15px;margin:8px 0 0">พนักงานทุกคนตั้งเมนูหมดได้</p>
+      </div>
+      <div class="note">การเพิ่ม/แก้ราคาเมนู ต้องมีสิทธิ์ "แก้เมนู / ราคา" · เปลี่ยนราคาแล้วไม่กระทบบิลที่ชำระไปแล้ว</div>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>10</span></div>
+</section>
+
+<!-- 11 dashboard -->
+<section class="s">
+  <div class="kick">แท็บ แดชบอร์ด</div>
+  <h1>รายรับ รายจ่าย และกำไร</h1>
+  <div class="grid2" style="grid-template-columns:1.15fr 1fr">
+    <div class="mock">
+      <div class="mbody">
+        <div class="chips"><span class="chip">วันนี้</span><span class="chip on">7 วัน</span><span class="chip">30 วัน</span><span class="chip">เดือนนี้</span><span class="chip">เดือนก่อน</span></div>
+        <div class="stats">
+          <div class="stat"><i>รายรับ</i><b>฿48,920</b></div>
+          <div class="stat"><i>รายจ่าย</i><b>฿21,300</b></div>
+          <div class="stat"><i>กำไร</i><b>฿27,620</b></div>
+          <div class="stat"><i>บิล</i><b>164</b></div>
+        </div>
+        <div style="font-weight:600;margin:6px 0 2px">รายรับ / รายจ่าย รายวัน</div>
+        <div class="bars">
+          <div><i style="height:62%"></i><i style="height:30%"></i></div>
+          <div><i style="height:55%"></i><i style="height:42%"></i></div>
+          <div><i style="height:70%"></i><i style="height:20%"></i></div>
+          <div><i style="height:48%"></i><i style="height:35%"></i></div>
+          <div><i style="height:84%"></i><i style="height:28%"></i></div>
+          <div><i style="height:95%"></i><i style="height:50%"></i></div>
+          <div><i style="height:78%"></i><i style="height:22%"></i></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <ol class="steps">
+        <li>เลือกช่วงเวลา (ปุ่มลัด หรือเลือกวันที่เอง)</li>
+        <li>ดูยอดรวม กราฟรายวัน รายจ่ายตามหมวด รายรับตามช่องทางชำระ และเมนูทำเงินสูงสุด</li>
+        <li><b>บันทึกรายจ่าย</b>: วันที่, หมวด (เช่น วัตถุดิบ ค่าแรง), จำนวนเงิน, รายละเอียด</li>
+      </ol>
+      <div class="legend"><span><i style="background:var(--brand)"></i>รายรับ</span><span><i style="background:var(--exp)"></i>รายจ่าย</span></div>
+      <p class="muted" style="font-size:15px">ต้องมีสิทธิ์ "ดูยอดขาย / แดชบอร์ด / รายจ่าย"</p>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>11</span></div>
+</section>
+
+<!-- 12 report -->
+<section class="s">
+  <div class="kick">แท็บ ยอดขาย</div>
+  <h1>ยอดขายรายวันและปิดยอด</h1>
+  <div class="grid2">
+    <ol class="steps">
+      <li>เลือก <b>วันที่</b> (ค่าเริ่มต้นคือวันนี้)</li>
+      <li>ดูสรุปยอด, รายการบิลทั้งหมด (เลขที่ เวลา โต๊ะ แคชเชียร์ ช่องทาง ยอด) และ <b>เมนูขายดี</b></li>
+      <li>ทุกบิลมีปุ่ม <span class="k">พิมพ์ซ้ำ</span> และ <span class="k">ยกเลิก</span> (ต้องมีสิทธิ์ยกเลิกบิล)</li>
+      <li>สิ้นวัน กด <span class="k">พิมพ์สรุปยอด</span> เพื่อปิดกะ / นับเงิน</li>
+    </ol>
+    <div class="card">
+      <h2>ใบสรุปยอดช่วยตรวจเงินในลิ้นชัก</h2>
+      <p style="font-size:17px;margin:0">ยอดแยกตามช่องทาง เงินสด / พร้อมเพย์ / โอน / บัตร ใช้เทียบกับเงินสดจริงและยอดเข้าบัญชี</p>
+      <p style="font-size:17px">บิลที่ถูกยกเลิกยังแสดงในรายการ แต่ไม่นับรวมยอดขาย</p>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>12</span></div>
+</section>
+
+<!-- 13 users -->
+<section class="s">
+  <div class="kick">แท็บ ตั้งค่า</div>
+  <h1>ผู้ใช้และสิทธิ์</h1>
+  <div class="grid2" style="grid-template-columns:1.3fr 1fr">
+    <table class="t">
+      <thead><tr><th>สิทธิ์</th><th class="c">พนักงาน</th><th class="c">แอดมิน</th><th class="c">เจ้าของร้าน</th></tr></thead>
+      <tbody>
+        <tr><td>จอง เปิดโต๊ะ สั่งอาหาร ส่งครัว รับเงิน ตั้งเมนูหมด</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>แก้เมนู / ราคา</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>ให้ส่วนลด</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>ลดรายการที่ส่งครัวแล้ว</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>ดูยอดขาย / แดชบอร์ด / รายจ่าย</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>ยกเลิกบิล</td><td class="c n">—</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>ตั้งค่าร้าน / จัดการโต๊ะ</td><td class="c n">—</td><td class="c n">—</td><td class="c y">✓</td></tr>
+        <tr><td>จัดการผู้ใช้</td><td class="c n">—</td><td class="c n">—</td><td class="c y">✓</td></tr>
+      </tbody>
+    </table>
+    <div>
+      <ol class="steps">
+        <li>กรอกชื่อผู้ใช้ (ใช้ล็อกอิน), ชื่อที่แสดง, รหัสผ่าน</li>
+        <li>เลือกแบบสำเร็จรูป <b>เจ้าของร้าน / แอดมิน / พนักงาน</b></li>
+        <li>ติ๊กเพิ่มหรือเอาออกทีละข้อได้ แล้วกด <span class="k">บันทึก</span></li>
+      </ol>
+      <div class="note">ให้สิทธิ์ได้เฉพาะสิทธิ์ที่ตัวเองมี · เฉพาะเจ้าของร้านสร้างเจ้าของร้านคนอื่นได้ · ให้แต่ละคนใช้บัญชีตัวเอง ชื่อแคชเชียร์จะขึ้นในบิล</div>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>13</span></div>
+</section>
+
+<!-- 14 shop settings -->
+<section class="s">
+  <div class="kick">แท็บ ตั้งค่า</div>
+  <h1>ข้อมูลร้านและโต๊ะ</h1>
+  <div class="grid2">
+    <div class="card">
+      <h2>ข้อมูลร้าน (แสดงบนบิล)</h2>
+      <ul style="margin:0;padding-left:22px">
+        <li style="font-size:17px">ชื่อร้าน ที่อยู่ เบอร์โทร ข้อความท้ายบิล</li>
+        <li style="font-size:17px"><b>Service charge (%)</b> และ <b>VAT (%)</b> ใส่ 0 ถ้าไม่คิด</li>
+        <li style="font-size:17px"><b>พร้อมเพย์</b>: เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก ใช้สร้าง QR รับเงินอัตโนมัติ</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>จัดการโต๊ะ</h2>
+      <ul style="margin:0;padding-left:22px">
+        <li style="font-size:17px">พิมพ์ชื่อโต๊ะใหม่ (เช่น 26, VIP1) แล้วกด <span class="k">เพิ่มโต๊ะ</span></li>
+        <li style="font-size:17px">ลบโต๊ะได้เฉพาะโต๊ะที่ว่างอยู่</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>14</span></div>
+</section>
+
+<!-- 15 tips -->
+<section class="s">
+  <div class="kick">ข้อควรรู้</div>
+  <h1>เคล็ดลับและแก้ปัญหาเบื้องต้น</h1>
+  <div class="grid2">
+    <div>
+      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">พิมพ์บิลไม่ออก</b><p style="font-size:16px;margin:4px 0 0">ตรวจว่าเครื่องพิมพ์ใบเสร็จเป็นค่าเริ่มต้นของเบราว์เซอร์ และอนุญาตหน้าต่างพิมพ์</p></div>
+      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">ข้อมูลไม่อัปเดต</b><p style="font-size:16px;margin:4px 0 0">ดูมุมขวาบน: ● ออนไลน์ / ● ออฟไลน์ ถ้าออฟไลน์ ตรวจอินเทอร์เน็ต/WiFi แล้วรีเฟรชหน้า</p></div>
+      <div class="card"><b style="font-size:18px">QR พร้อมเพย์ไม่ขึ้น</b><p style="font-size:16px;margin:4px 0 0">ต้องตั้งเบอร์พร้อมเพย์ในแท็บตั้งค่า และเครื่องต้องต่ออินเทอร์เน็ต</p></div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">ล็อกอินไม่ได้</b><p style="font-size:16px;margin:4px 0 0">ใส่รหัสผิดหลายครั้งจะถูกล็อก 5 นาที รอแล้วลองใหม่ หรือให้เจ้าของร้านตั้งรหัสใหม่ในแท็บตั้งค่า</p></div>
+      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">สำรองข้อมูล (เครื่องในร้าน)</b><p style="font-size:16px;margin:4px 0 0">ดับเบิลคลิก <span class="k">backup.bat</span> ไฟล์อยู่ในโฟลเดอร์ backups เก็บย้อนหลัง 60 วัน</p></div>
+      <div class="card"><b style="font-size:18px">ความปลอดภัย</b><p style="font-size:16px;margin:4px 0 0">อย่าใช้บัญชีร่วมกัน ออกจากระบบทุกครั้งเมื่อใช้เครื่องสาธารณะ</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>โคขุน POS</span><span>15</span></div>
+</section>
+
+</body>
+</html>
