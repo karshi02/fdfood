@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8080:80"            # open from tablets/phones on the same WiFi
+      - "8090:80"            # open from tablets/phones on the same WiFi
     volumes:
       - ./public:/var/www/html
     environment:
@@ -36,7 +36,7 @@ services:
   phpmyadmin:
     image: phpmyadmin:5.2
     ports:
-      - "127.0.0.1:8081:80"  # this computer only
+      - "127.0.0.1:8091:80"  # this computer only
     environment:
       PMA_HOST: db
     depends_on:
