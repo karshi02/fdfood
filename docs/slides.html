@@ -116,7 +116,7 @@ table.t td.c, table.t th.c { text-align: center; }
   <div class="grid3" style="gap:18px">
     <div class="card feat"><b>ผังโต๊ะแบบสด</b><span>เห็นสถานะทุกโต๊ะ ว่าง / จอง / มีลูกค้า และยอดค้างชำระ อัปเดตทุกเครื่องพร้อมกัน</span></div>
     <div class="card feat"><b>สั่งอาหารและส่งครัว</b><span>กดเมนูเพื่อสั่ง ใส่หมายเหตุ แล้วพิมพ์ใบสั่งเข้าครัวเฉพาะรายการใหม่</span></div>
-    <div class="card feat"><b>เก็บเงิน 4 ช่องทาง</b><span>เงินสด (คำนวณเงินทอน), พร้อมเพย์ QR, โอน, บัตร พร้อมพิมพ์ใบเสร็จ</span></div>
+    <div class="card feat"><b>เก็บเงิน 3 ช่องทาง</b><span>เงินสด (คำนวณเงินทอน), โอน (ขึ้น QR พร้อมเพย์), อื่นๆ พร้อมพิมพ์ใบเสร็จ</span></div>
     <div class="card feat"><b>ส่วนลด, Service, VAT</b><span>ลดเป็นบาทหรือ % คิด Service charge และ VAT ให้อัตโนมัติ</span></div>
     <div class="card feat"><b>แดชบอร์ดรายรับ-รายจ่าย</b><span>บันทึกรายจ่าย ดูกำไรรายวัน เมนูทำเงิน และยอดแยกช่องทางชำระ</span></div>
     <div class="card feat"><b>ผู้ใช้และสิทธิ์</b><span>แยกบัญชีพนักงาน กำหนดว่าใครให้ส่วนลด ยกเลิกบิล หรือดูยอดได้</span></div>
@@ -131,7 +131,7 @@ table.t td.c, table.t th.c { text-align: center; }
   <div class="flow">
     <div class="f"><div class="n2">1</div><b>จองโต๊ะ</b><span>ใส่วัน-เวลา และจำนวนคน (ถ้ามี)</span></div>
     <div class="arr">›</div>
-    <div class="f"><div class="n2">2</div><b>เปิดโต๊ะ</b><span>เมื่อลูกค้านั่ง กด "เปิดโต๊ะ / เริ่มสั่งอาหาร"</span></div>
+    <div class="f"><div class="n2">2</div><b>เปิดโต๊ะ</b><span>กด "ใช้งาน" ที่โต๊ะ โต๊ะเปิดจริงเมื่อสั่งจานแรก</span></div>
     <div class="arr">›</div>
     <div class="f"><div class="n2">3</div><b>สั่งอาหาร</b><span>แตะเมนู ปรับจำนวน ใส่หมายเหตุ</span></div>
     <div class="arr">›</div>
@@ -169,7 +169,7 @@ table.t td.c, table.t th.c { text-align: center; }
           <div class="btnm brand" style="padding:11px">เข้าสู่ระบบ</div>
         </div>
       </div>
-      <div class="note warn" style="margin-top:20px">รหัสผ่านผิด 5 ครั้ง บัญชีจะถูกล็อก 5 นาที · ปุ่ม "เปลี่ยนรหัส" อยู่มุมขวาบนทุกหน้า</div>
+      <div class="note warn" style="margin-top:20px">รหัสผ่านผิด 5 ครั้ง บัญชีจะถูกล็อก 5 นาที · "เปลี่ยนรหัสผ่าน" อยู่ในปุ่มเฟือง ⚙ มุมขวาบน</div>
     </div>
   </div>
   <div class="foot"><span>โคขุน POS</span><span>4</span></div>
@@ -204,7 +204,7 @@ table.t td.c, table.t th.c { text-align: center; }
     <div>
       <p style="margin-top:0">แตะโต๊ะใดก็ได้เพื่อเปิดหน้าต่างของโต๊ะนั้น</p>
       <div class="legend" style="flex-direction:column;gap:10px">
-        <span><i style="background:var(--free)"></i><b>ว่าง</b> · จองหรือเปิดโต๊ะได้</span>
+        <span><i style="background:var(--free)"></i><b>ว่าง</b> · ปุ่ม "ใช้งาน" เริ่มสั่งอาหารได้ทันที</span>
         <span><i style="background:var(--resv)"></i><b>จองแล้ว</b> · แสดงเวลาและจำนวนคน</span>
         <span><i style="background:var(--busy)"></i><b>มีลูกค้า</b> · จำนวนรายการ ยอด เวลาที่นั่ง และเตือน "ยังไม่ส่งครัว" / "รอชำระ"</span>
       </div>
@@ -232,11 +232,10 @@ table.t td.c, table.t th.c { text-align: center; }
     <div class="card">
       <h2>เปิดโต๊ะเมื่อลูกค้ามาถึง</h2>
       <ol class="steps">
-        <li>แตะโต๊ะ (ว่าง หรือ จองแล้ว)</li>
-        <li>กด <span class="k">เปิดโต๊ะ / เริ่มสั่งอาหาร</span></li>
-        <li>โต๊ะเปลี่ยนเป็นสีน้ำเงิน และเริ่มนับเวลา</li>
+        <li>กดปุ่ม <span class="k">ใช้งาน</span> (โต๊ะว่าง) หรือ <span class="k">เปิดโต๊ะ</span> (โต๊ะที่จองไว้) หน้าสั่งอาหารเปิดขึ้นมา</li>
+        <li>กดเมนูจานแรก โต๊ะจึงเปลี่ยนเป็น "มีลูกค้า" และเริ่มนับเวลา (ข้อมูลการจองยังอยู่)</li>
       </ol>
-      <div class="note" style="margin-top:6px">เปิดผิดโต๊ะ? ถ้ายังไม่ได้สั่งอะไร กด <b>ยกเลิกเปิดโต๊ะ</b> ได้เลย</div>
+      <div class="note" style="margin-top:6px">เปิดผิดโต๊ะ? ถ้ายังไม่ได้สั่งอะไร แค่กดปิด โต๊ะกลับเป็นว่าง (หรือจองไว้) เหมือนเดิม · ลดจานสุดท้ายออกแล้วปิด ก็กลับเป็นว่างเช่นกัน</div>
     </div>
   </div>
   <div class="foot"><span>โคขุน POS</span><span>6</span></div>
@@ -320,7 +319,7 @@ table.t td.c, table.t th.c { text-align: center; }
         <div class="row" style="border:0"><span>ส่วนลด 10%</span><span>-76.00</span></div>
         <div class="row" style="border:0"><span>Service 10%</span><span>68.40</span></div>
         <div class="tot" style="border-top:1px solid var(--line);padding-top:8px"><span>ยอดสุทธิ</span><span>฿752.40</span></div>
-        <div class="chips"><span class="chip on">เงินสด</span><span class="chip">พร้อมเพย์/QR</span><span class="chip">โอน</span><span class="chip">บัตร</span></div>
+        <div class="chips"><span class="chip on">เงินสด</span><span class="chip">โอน</span><span class="chip">อื่นๆ</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><small class="muted">รับเงิน (บาท)</small><div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px">1000</div></div>
           <div><small class="muted">เงินทอน</small><div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--bg)">247.60</div></div>
@@ -332,7 +331,7 @@ table.t td.c, table.t th.c { text-align: center; }
     </div>
     <ol class="steps">
       <li>ลูกค้าขอบิล: กด <span class="k">เช็คบิล + พิมพ์</span> ได้ใบแจ้งยอด (มี QR พร้อมเพย์ถ้าตั้งไว้) โต๊ะขึ้นว่า "รอชำระ" (ถ้าสั่งเพิ่มภายหลัง ระบบเตือนให้พิมพ์ใหม่)</li>
-      <li>เลือกช่องทางชำระ<br><b>เงินสด</b> ใส่ยอดที่รับหรือกดปุ่มลัด ระบบคิดเงินทอน<br><b>พร้อมเพย์/QR</b> แสดง QR พร้อมยอดให้ลูกค้าสแกน</li>
+      <li>เลือกช่องทางชำระ<br><b>เงินสด</b> ใส่ยอดที่รับหรือกดปุ่มลัด ระบบคิดเงินทอน<br><b>โอน</b> แสดง QR พร้อมเพย์พร้อมยอดให้ลูกค้าสแกน (ถ้าตั้งเบอร์ไว้)<br><b>อื่นๆ</b> เช่น บัตร หรือช่องทางอื่น</li>
       <li>กด <span class="k">ชำระเงิน + พิมพ์บิล</span> และยืนยัน ระบบพิมพ์ใบเสร็จและปิดโต๊ะ</li>
     </ol>
   </div>
@@ -418,12 +417,13 @@ table.t td.c, table.t th.c { text-align: center; }
       <li>เลือก <b>วันที่</b> (ค่าเริ่มต้นคือวันนี้)</li>
       <li>ดูสรุปยอด, รายการบิลทั้งหมด (เลขที่ เวลา โต๊ะ แคชเชียร์ ช่องทาง ยอด) และ <b>เมนูขายดี</b></li>
       <li>ทุกบิลมีปุ่ม <span class="k">พิมพ์ซ้ำ</span> และ <span class="k">ยกเลิก</span> (ต้องมีสิทธิ์ยกเลิกบิล)</li>
-      <li>สิ้นวัน กด <span class="k">พิมพ์สรุปยอด</span> เพื่อปิดกะ / นับเงิน</li>
+      <li>สิ้นวัน กด <span class="k">พิมพ์บิลรวมทั้งวัน</span> เพื่อปิดกะ / นับเงิน</li>
     </ol>
     <div class="card">
       <h2>ใบสรุปยอดช่วยตรวจเงินในลิ้นชัก</h2>
-      <p style="font-size:17px;margin:0">ยอดแยกตามช่องทาง เงินสด / พร้อมเพย์ / โอน / บัตร ใช้เทียบกับเงินสดจริงและยอดเข้าบัญชี</p>
-      <p style="font-size:17px">บิลที่ถูกยกเลิกยังแสดงในรายการ แต่ไม่นับรวมยอดขาย</p>
+      <p style="font-size:17px;margin:0">ยอดแยกตามช่องทาง เงินสด / โอน / อื่นๆ ใช้เทียบกับเงินสดจริงและยอดเข้าบัญชี</p>
+      <p style="font-size:17px;margin-bottom:0">บิลที่ถูกยกเลิกยังแสดงในรายการ แต่ไม่นับรวมยอดขาย</p>
+      <p class="muted" style="font-size:15px;margin-bottom:0"><b>เฉพาะเจ้าของร้าน:</b> เปลี่ยนวิธีชำระของบิล, <b>เปลี่ยนวัน</b>ของบิล, และ <b>เปิดบิลชำระใหม่</b> (บิลเดิมกลายเป็นยกเลิก รายการกลับไปที่โต๊ะเพื่อเก็บเงินใหม่)</p>
     </div>
   </div>
   <div class="foot"><span>โคขุน POS</span><span>12</span></div>
@@ -489,8 +489,8 @@ table.t td.c, table.t th.c { text-align: center; }
   <h1>เคล็ดลับและแก้ปัญหาเบื้องต้น</h1>
   <div class="grid2">
     <div>
-      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">พิมพ์บิลไม่ออก</b><p style="font-size:16px;margin:4px 0 0">ตรวจว่าเครื่องพิมพ์ใบเสร็จเป็นค่าเริ่มต้นของเบราว์เซอร์ และอนุญาตหน้าต่างพิมพ์</p></div>
-      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">ข้อมูลไม่อัปเดต</b><p style="font-size:16px;margin:4px 0 0">ดูมุมขวาบน: ● ออนไลน์ / ● ออฟไลน์ ถ้าออฟไลน์ ตรวจอินเทอร์เน็ต/WiFi แล้วรีเฟรชหน้า</p></div>
+      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">ตั้งเครื่องพิมพ์ใบเสร็จ</b><p style="font-size:16px;margin:4px 0 0">ปุ่มเฟือง ⚙ มุมขวาบน › <b>เครื่องพิมพ์ใบเสร็จ</b> เลือก <b>บลูทูธ</b> (Chrome) หรือ <b>แอป RawBT</b> (เครื่องพิมพ์ในตัว Ocha / Sunmi / แอนดรอยด์) · ไม่ได้ตั้ง = พิมพ์ผ่านเบราว์เซอร์</p></div>
+      <div class="card" style="margin-bottom:14px"><b style="font-size:18px">ข้อมูลไม่อัปเดต</b><p style="font-size:16px;margin:4px 0 0">ดูใต้ชื่อร้าน: ● ออนไลน์ / ● ออฟไลน์ ถ้าออฟไลน์ ตรวจอินเทอร์เน็ต/WiFi แล้วรีเฟรชหน้า</p></div>
       <div class="card"><b style="font-size:18px">QR พร้อมเพย์ไม่ขึ้น</b><p style="font-size:16px;margin:4px 0 0">ต้องตั้งเบอร์พร้อมเพย์ในแท็บตั้งค่า และเครื่องต้องต่ออินเทอร์เน็ต</p></div>
     </div>
     <div>
