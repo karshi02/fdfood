@@ -109,12 +109,12 @@ function viewBill(b) {
 $('bvClose').onclick = () => $('billView').classList.add('hidden');
 $('billView').onclick = e => { if (e.target.id === 'billView') $('billView').classList.add('hidden'); };
 // owner only: move a bill to another payment date-time; it then counts in that day's sales
-async function redateBill(b) {
-  const v = prompt(`เปลี่ยนวันชำระบิล #${billNo(b)} (ปี-เดือน-วัน ชั่วโมง:นาที)`, String(b.date).slice(0, 16));
-  if (v === null) return;
-  const date = v.trim().replace('T', ' ');
-  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(date)) return alert('รูปแบบวันเวลาไม่ถูกต้อง เช่น 2026-10-20 18:30');
-  if (await act('bill_date', { no: b.no, date })) { toast(`ย้ายบิล #${billNo(b)} ไป ${date} แล้ว`); loadReport(); }
+function redateBill(b) {
+  pickDate(b.date, { time: true, title: `เปลี่ยนวันชำระบิล #${billNo(b)}` }, async v => {
+    const date = v.replace('T', ' ');
+    if (date === String(b.date).slice(0, 16)) return;
+    if (await act('bill_date', { no: b.no, date })) { toast(`ย้ายบิล #${billNo(b)} ไป ${calText(v)} แล้ว`); loadReport(); }
+  });
 }
 // one big bill for the picked day or range: all dishes added up, every bill listed (voided ones marked), totals
 $('rPrint').onclick = async () => {

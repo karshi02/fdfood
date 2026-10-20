@@ -107,16 +107,9 @@
   </section>
 
   <section id="tab-dash" class="hidden">
-    <div class="row" style="margin-bottom:12px">
-      <div style="flex:2 1 300px"><label>ช่วงเวลา</label><div class="cats" id="dPresets" style="margin:0">
-        <button class="chip" data-p="today">วันนี้</button>
-        <button class="chip" data-p="7">7 วัน</button>
-        <button class="chip" data-p="30">30 วัน</button>
-        <button class="chip" data-p="month">เดือนนี้</button>
-        <button class="chip" data-p="lastmonth">เดือนก่อน</button>
-      </div></div>
-      <div><label>ตั้งแต่</label><input type="date" id="dFrom"></div>
-      <div><label>ถึง</label><input type="date" id="dTo"></div>
+    <div class="rbar">
+      <button class="datebtn" id="dRange" type="button"><span data-ic="calendar"></span><span><small>ช่วงวันที่</small><span id="dRangeTxt"></span></span></button>
+      <input type="hidden" id="dFrom"><input type="hidden" id="dTo">
     </div>
     <div class="stats" id="dStats"></div>
     <div class="card">
@@ -129,7 +122,7 @@
         <h2>บันทึกรายจ่าย</h2>
         <form id="expForm" class="row">
           <input type="hidden" id="eId">
-          <div><label>วันที่</label><input type="date" id="eDate" required></div>
+          <div><label>วันที่</label><button type="button" class="calfield" id="eDate" value=""><span data-ic="calendar"></span><span>เลือกวันที่</span></button></div>
           <div><label>หมวด</label><input id="eCat" list="expCats" placeholder="เช่น วัตถุดิบ, ค่าแรง" required></div>
           <div><label>จำนวนเงิน (บาท)</label><input id="eAmt" type="number" min="0.01" step="0.01" required></div>
           <div style="flex-basis:100%"><label>รายละเอียด</label><input id="eNote" placeholder="เช่น ซื้อเนื้อ 10 กก. ตลาดเช้า"></div>

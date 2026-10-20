@@ -47,7 +47,7 @@ function renderModal() {
       <h2>เปิดโต๊ะ</h2>
       <div class="row">
         <div><label>จำนวนลูกค้า (คน)</label><input id="oPax" type="number" min="1" inputmode="numeric" placeholder="เช่น 4" value="${esc(opening.pax)}"></div>
-        ${isOwner() ? `<div><label>วัน-เวลาเปิดโต๊ะ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="oOpened" type="datetime-local" value="${esc(opening.opened)}"></div>` : ''}
+        ${isOwner() ? `<div><label>วัน-เวลาเปิดโต๊ะ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label>${calField('oOpened', opening.opened, { time: true, empty: 'เวลาตอนนี้' })}</div>` : ''}
       </div>
       <div class="chips" role="radiogroup">
         <button class="chip ${opening.takeaway ? '' : 'on'}" data-ta="0" type="button">ทานที่ร้าน</button>
@@ -58,7 +58,7 @@ function renderModal() {
     <div class="card">
       <h2>${t.status === 'resv' ? 'ข้อมูลการจอง' : 'จองโต๊ะ'}</h2>
       <div class="row">
-        <div><label>วัน-เวลา</label><input id="rTime" type="datetime-local" value="${esc(resvTime || String(r.time || nowLocal()).replace(' ', 'T'))}"></div>
+        <div><label>วัน-เวลา</label>${calField('rTime', resvTime || String(r.time || nowLocal()).replace(' ', 'T').slice(0, 16), { time: true, future: true })}</div>
         <div><label>จำนวนคน</label><input id="rPax" type="number" min="1" value="${esc(r.pax)}"></div>
       </div>
       <div class="actions">
@@ -119,7 +119,7 @@ function renderModal() {
     <div class="opane" id="orderCard">
       <section class="osec">
         <div class="osec-h">${icon('cart')}<span>รายการที่สั่ง</span><small>${esc([t.resv && t.resv.name, guests].filter(Boolean).join(' · '))}</small></div>
-        ${isOwner() ? `<div class="ownat"><label>เวลาสั่ง <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="orderAt" type="datetime-local" value="${esc(orderAt)}"></div>` : ''}
+        ${isOwner() ? `<div class="ownat"><label>เวลาสั่ง <small class="muted">(เว้นว่าง = ตอนนี้)</small></label>${calField('orderAt', orderAt, { time: true, empty: 'เวลาตอนนี้' })}</div>` : ''}
         <div class="osec-b">
           ${t.order.map(i => `<div class="oi">
             ${thumb(null, catOf(i.menuId, i.name), 'oimg')}
@@ -154,7 +154,7 @@ function renderModal() {
       <section class="osec">
         <div class="osec-h">${icon('wallet')}<span>ช่องทางการชำระเงิน</span></div>
         <div class="osec-b">
-          ${isOwner() ? `<div class="ownat"><label>วัน-เวลาชำระ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label><input id="payAt" type="datetime-local" value="${esc(payAt)}"></div>` : ''}
+          ${isOwner() ? `<div class="ownat"><label>วัน-เวลาชำระ <small class="muted">(เว้นว่าง = ตอนนี้)</small></label>${calField('payAt', payAt, { time: true, empty: 'เวลาตอนนี้' })}</div>` : ''}
           <div class="ptiles">${[...PAY_METHODS, 'mixed'].map(k => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k])}<span>${METHODS[k]}</span></button>`).join('')}</div>
           ${payMethod === 'mixed' ? `<div class="row">
               <div><label>ยอดโอน (บาท)</label><input id="xfer" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(xferIn)}"></div>

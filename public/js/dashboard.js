@@ -2,20 +2,20 @@
 const EXP_CATS = ['วัตถุดิบ', 'เครื่องดื่ม/น้ำแข็ง', 'ค่าแรงพนักงาน', 'ค่าเช่า', 'ค่าน้ำ/ค่าไฟ', 'แก๊ส', 'อุปกรณ์/ของใช้', 'อื่นๆ'];
 const thDay = (k, opt = { day: 'numeric', month: 'short' }) => new Date(k + 'T00:00').toLocaleDateString('th-TH', opt);
 let dash = null, dashPreset = '7';
+// presets keep their meaning when coming back to the tab ("7 days" moves with today); a range picked on the calendar stays put
+function setDashRange(f, t) { $('dFrom').value = f; $('dTo').value = t; $('dRangeTxt').textContent = thRange(f, t); }
 function setPreset(p) {
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
   let from = now, to = now;
   if (p === '7' || p === '30') from = new Date(y, m, now.getDate() - Number(p) + 1);
   if (p === 'month') from = new Date(y, m, 1);
   if (p === 'lastmonth') { from = new Date(y, m - 1, 1); to = new Date(y, m, 0); }
-  dashPreset = p; $('dFrom').value = dayKey(from); $('dTo').value = dayKey(to);
+  dashPreset = p; setDashRange(dayKey(from), dayKey(to));
   loadDash();
 }
-$('dPresets').querySelectorAll('[data-p]').forEach(b => b.onclick = () => setPreset(b.dataset.p));
-$('dFrom').onchange = $('dTo').onchange = () => { dashPreset = ''; loadDash(); };
+$('dRange').onclick = () => pickRange($('dFrom').value, $('dTo').value, (f, t) => { dashPreset = ''; setDashRange(f, t); loadDash(); });
 async function loadDash() {
-  if (!$('dFrom').value) { $('dFrom').value = dayKey(Date.now() - 6 * 864e5); $('dTo').value = dayKey(Date.now()); }
-  $('dPresets').querySelectorAll('[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === dashPreset));
+  if (!$('dFrom').value) setDashRange(dayKey(Date.now() - 6 * 864e5), dayKey(Date.now()));
   const d = await act(`dash&from=${$('dFrom').value}&to=${$('dTo').value}`);
   if (d) { dash = d; renderDash(); }
 }
@@ -112,6 +112,7 @@ resetExpForm();
 $('expForm').onsubmit = async e => {
   e.preventDefault();
   const edit = $('eId').value;
+  if (!$('eDate').value) return alert('เลือกวันที่ก่อน');
   if (await act('expense_save', { id: Number(edit) || null, date: $('eDate').value, cat: $('eCat').value, amount: Number($('eAmt').value), note: $('eNote').value })) {
     const keepDate = $('eDate').value, keepCat = $('eCat').value;
     resetExpForm(); if (!edit) { $('eDate').value = keepDate; $('eCat').value = keepCat; }
