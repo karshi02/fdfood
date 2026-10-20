@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"            # open from tablets/phones on the same WiFi
+    volumes:
+      - ./public:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_NAME: fdfood
+      DB_USER: fdfood
+      DB_PASS: ${DB_PASS}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.4
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE: fdfood
+      MYSQL_USER: fdfood
+      MYSQL_PASSWORD: ${DB_PASS}
+      TZ: Asia/Bangkok
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    ports:
+      - "127.0.0.1:8081:80"  # this computer only
+    environment:
+      PMA_HOST: db
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  dbdata:
