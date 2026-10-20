@@ -14,11 +14,11 @@ $('sSave').onclick = async () => {
   const pp = $('sPP').value.trim();
   if (pp && !promptpayPayload(pp)) return alert('พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขบัตร 13 หลัก');
   if (await act('settings_save', { name: $('sName').value, addr: $('sAddr').value, phone: $('sPhone').value,
-    service: String(Number($('sService').value) || 0), vat: String(Number($('sVat').value) || 0), promptpay: pp, footer: $('sFooter').value })) alert('บันทึกแล้ว');
+    service: String(Number($('sService').value) || 0), vat: String(Number($('sVat').value) || 0), promptpay: pp, footer: $('sFooter').value })) toast('บันทึกข้อมูลร้านแล้ว');
 };
 $('tAdd').onclick = async () => {
   const name = $('tName').value.trim(); if (!name) return;
-  if (await act('table_add', { name })) $('tName').value = '';
+  if (await act('table_add', { name })) { $('tName').value = ''; toast(`เพิ่มโต๊ะ ${name} แล้ว`); }
 };
 
 let users = [], uRole = 'staff';

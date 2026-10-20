@@ -27,10 +27,15 @@ async function api(action, body) {
 }
 // fire-and-forget for button handlers: api() already showed the error
 const act = (action, body) => api(action, body).catch(() => null);
-let toastTimer;
+// pops in at the top-right, stays 4 s, then slides up and away; several stack, newest on top
 function toast(msg) {
-  $('toast').textContent = msg; $('toast').classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2500);
+  const box = $('toast'), el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  box.prepend(el);
+  while (box.children.length > 4) box.lastElementChild.remove();
+  void el.offsetWidth; // start from the hidden state so the entry animates
+  el.classList.add('show');
+  setTimeout(() => { el.classList.replace('show', 'out'); setTimeout(() => el.remove(), 300); }, 4000);
 }
 
 function apply(d, fromPoll) {
