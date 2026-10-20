@@ -52,7 +52,7 @@ function renderModal() {
   const thumb = (img, cat, cls) => img
     ? `<span class="${cls} photo"><img src="${esc(img)}" alt="" loading="lazy"></span>`
     : `<span class="${cls}">${icon(catIcon(cat))}</span>`;
-  const MICON = { cash: 'bill', qr: 'qr', transfer: 'swap', card: 'card' };
+  const MICON = { cash: 'bill', transfer: 'qr', other: 'dots' };
   b.innerHTML = `<div class="split osheet">
     <div class="mpane">
       <div class="msearch">
@@ -111,12 +111,12 @@ function renderModal() {
       <section class="osec">
         <div class="osec-h">${icon('wallet')}<span>ช่องทางการชำระเงิน</span></div>
         <div class="osec-b">
-          <div class="ptiles">${Object.entries(METHODS).map(([k, v]) => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k] || 'bill')}<span>${v}</span></button>`).join('')}</div>
+          <div class="ptiles">${PAY_METHODS.map(k => `<button class="ptile ${k === payMethod ? 'on' : ''}" data-m="${k}" type="button">${icon(MICON[k])}<span>${METHODS[k]}</span></button>`).join('')}</div>
           ${payMethod === 'cash' ? `<div class="row">
               <div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(cashIn)}"></div>
               <div><label>เงินทอน</label><input id="change" readonly placeholder="0.00"></div></div>
             <div class="cashq">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}" type="button">${n.toLocaleString('th-TH')}</button>`).join('')}<button class="chip exact" data-cash="${c.total}" type="button">พอดี</button></div>` : ''}
-          ${payMethod === 'qr' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">ให้แอดมินตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" ก่อน</p>') : ''}
+          ${payMethod === 'transfer' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">โอนเข้าบัญชีร้าน · ตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" เพื่อให้ขึ้น QR ให้ลูกค้าสแกน</p>') : ''}
           ${has ? '' : `<button class="voidrow" id="cancelOpen" type="button">${icon('close')}<span>ยกเลิกเปิดโต๊ะ</span>${icon('next')}</button>`}
           ${has && can('void') ? `<button class="voidrow" id="voidTable" type="button">${icon('receipt')}<span>ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</span>${icon('next')}</button>` : ''}
         </div>

@@ -72,7 +72,7 @@ CREATE TABLE bills (
   total DECIMAL(10,2) NOT NULL,
   service_pct DECIMAL(5,2) NOT NULL DEFAULT 0,
   vat_pct DECIMAL(5,2) NOT NULL DEFAULT 0,
-  method ENUM('cash','qr','transfer','card') NOT NULL,
+  method ENUM('cash','qr','transfer','card','other') NOT NULL,
   cash DECIMAL(10,2) NULL,
   change_amt DECIMAL(10,2) NULL,
   cashier_id INT NULL,

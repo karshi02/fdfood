@@ -2,7 +2,9 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const baht = n => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const r2 = n => Math.round(n * 100) / 100;
 const $ = id => document.getElementById(id);
-const METHODS = { cash: 'เงินสด', qr: 'พร้อมเพย์/QR', transfer: 'โอน', card: 'บัตร' };
+// labels for every method a bill can carry; qr and card only appear on bills made before the 3-choice payment screen
+const METHODS = { cash: 'เงินสด', transfer: 'โอน', other: 'อื่นๆ', qr: 'พร้อมเพย์/QR', card: 'บัตร' };
+const PAY_METHODS = ['cash', 'transfer', 'other'];
 const pad = n => String(n).padStart(2, '0');
 const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 const toDate = s => new Date(String(s).replace(' ', 'T')); // MySQL DATETIME -> local Date

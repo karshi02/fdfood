@@ -39,8 +39,12 @@ function tx(callable $f): mixed {
 }
 
 // upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
-const SCHEMA = 6;
+const SCHEMA = 7;
 if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
+    // payment is now cash / transfer / other; qr and card stay valid so older bills keep their method
+    if (!str_contains((string)q("SHOW COLUMNS FROM bills LIKE 'method'")->fetch()['Type'], "'other'")) {
+        q("ALTER TABLE bills MODIFY method ENUM('cash','qr','transfer','card','other') NOT NULL");
+    }
     // dishes added by someone without the "menu" permission wait for price approval
     if (!q("SHOW COLUMNS FROM menu LIKE 'pending'")->fetch()) {
         try { q('ALTER TABLE menu ADD COLUMN pending TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN created_by INT NULL'); }
@@ -387,7 +391,7 @@ try {
             $items = q('SELECT * FROM order_items WHERE table_id = ? ORDER BY id', [$t['id']])->fetchAll();
             if (!$items) fail('ไม่มีรายการ');
             no_pending((int)$t['id']);
-            $method = in_array($in['method'] ?? '', ['cash', 'qr', 'transfer', 'card'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
+            $method = in_array($in['method'] ?? '', ['cash', 'transfer', 'other'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
             $s = settings();
             $c = calc($items, $t['disc_type'], $t['disc_value'], $s);
             $cash = isset($in['cash']) && $method === 'cash' ? (money($in['cash']) ?? fail('จำนวนเงินที่รับไม่ถูกต้อง')) : null;
