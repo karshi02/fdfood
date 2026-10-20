@@ -86,9 +86,18 @@ function perms_of(array $u): array {
     return array_values(array_intersect(array_keys(PERMS), explode(',', (string)($u['perms'] ?? ''))));
 }
 
+// sessions last 30 days, so a password change must end the user's other sessions:
+// each session remembers a fingerprint of the hash it logged in with
+function pass_tag(string $hash): string { return substr(hash('sha256', $hash), 0, 16); }
 $me = null;
 if (isset($_SESSION['uid'])) {
-    $me = q('SELECT id, username, name, role, perms FROM users WHERE id = ? AND active = 1', [$_SESSION['uid']])->fetch() ?: null;
+    $me = q('SELECT id, username, name, role, perms, pass_hash FROM users WHERE id = ? AND active = 1', [$_SESSION['uid']])->fetch() ?: null;
+    if ($me) {
+        $tag = pass_tag($me['pass_hash']);
+        unset($me['pass_hash']); // $me goes to the browser in state()
+        $_SESSION['ph'] ??= $tag; // sessions from before this check: adopt, don't log everyone out
+        if ($_SESSION['ph'] !== $tag) { $_SESSION = []; $me = null; }
+    }
     if ($me) { $me['id'] = (int)$me['id']; $me['perms'] = perms_of($me); $me['weak'] = !empty($_SESSION['weak']); }
 }
 function can(string $perm): bool { global $me; return $me && in_array($perm, $me['perms'], true); }
@@ -213,6 +222,7 @@ try {
         q('DELETE FROM login_fails WHERE k = ?', ["u:$username|$ip"]);
         session_regenerate_id(true);
         $_SESSION['uid'] = (int)$u['id'];
+        $_SESSION['ph'] = pass_tag($u['pass_hash']);
         $_SESSION['weak'] = $pass === DEFAULT_PASS;
         $me = ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'perms' => perms_of($u), 'weak' => $_SESSION['weak']];
         out(state());
@@ -226,7 +236,10 @@ try {
         $new = (string)($in['new'] ?? '');
         if (mb_strlen($new) < 4) fail('รหัสใหม่ต้องยาวอย่างน้อย 4 ตัว');
         if ($new === DEFAULT_PASS) fail('ห้ามใช้รหัสเริ่มต้น');
-        q('UPDATE users SET pass_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $me['id']]);
+        $hash = password_hash($new, PASSWORD_DEFAULT);
+        q('UPDATE users SET pass_hash = ? WHERE id = ?', [$hash, $me['id']]);
+        // this session stays signed in; the user's other devices are signed out
+        $_SESSION['ph'] = pass_tag($hash);
         $_SESSION['weak'] = false;
         out(['ok' => true]);
 
@@ -565,13 +578,20 @@ try {
             // someone given "manage users" must not be able to hand out more than they have
             if ($role === 'admin' || ($target && $target['role'] === 'admin')) fail('เฉพาะเจ้าของร้านเท่านั้นที่ตั้ง/แก้บัญชีเจ้าของร้านได้', 403);
             if (array_diff($perms, $me['perms'])) fail('ให้สิทธิ์ที่ตัวเองไม่มีไม่ได้', 403);
+            // resetting the password of someone with more rights would let you log in as them
+            if ($target && array_diff(perms_of($target), $me['perms'])) fail('แก้บัญชีที่มีสิทธิ์มากกว่าตัวเองไม่ได้', 403);
             if ($id === $me['id']) $perms = perms_of($target);
         }
         if ($id === $me['id'] && $me['role'] === 'admin' && $role !== 'admin') fail('ลดสิทธิ์ตัวเองไม่ได้');
         if (q('SELECT id FROM users WHERE username = ? AND id <> ?', [$username, $id])->fetch()) fail('ชื่อผู้ใช้นี้มีแล้ว');
         if ($id) {
             q('UPDATE users SET username = ?, name = ?, role = ?, perms = ? WHERE id = ?', [$username, $name, $role, implode(',', $perms), $id]);
-            if ($pass !== '') q('UPDATE users SET pass_hash = ? WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
+            if ($pass !== '') {
+                // the user's sessions end (see pass_tag) - except this one when you change your own
+                $hash = password_hash($pass, PASSWORD_DEFAULT);
+                q('UPDATE users SET pass_hash = ? WHERE id = ?', [$hash, $id]);
+                if ($id === $me['id']) { $_SESSION['ph'] = pass_tag($hash); $_SESSION['weak'] = $pass === DEFAULT_PASS; }
+            }
         } else {
             q('INSERT INTO users (username, pass_hash, name, role, perms) VALUES (?, ?, ?, ?, ?)', [$username, password_hash($pass, PASSWORD_DEFAULT), $name, $role, implode(',', $perms)]);
         }
@@ -580,7 +600,11 @@ try {
         need('users');
         $id = (int)($in['id'] ?? 0);
         if ($id === $me['id']) fail('ลบตัวเองไม่ได้');
-        if ($me['role'] !== 'admin' && q("SELECT 1 FROM users WHERE id = ? AND role = 'admin'", [$id])->fetch()) fail('เฉพาะเจ้าของร้านเท่านั้นที่ลบบัญชีเจ้าของร้านได้', 403);
+        if ($me['role'] !== 'admin') {
+            $target = q('SELECT role, perms FROM users WHERE id = ? AND active = 1', [$id])->fetch() ?: fail('ไม่พบผู้ใช้');
+            if ($target['role'] === 'admin') fail('เฉพาะเจ้าของร้านเท่านั้นที่ลบบัญชีเจ้าของร้านได้', 403);
+            if (array_diff(perms_of($target), $me['perms'])) fail('ลบบัญชีที่มีสิทธิ์มากกว่าตัวเองไม่ได้', 403);
+        }
         // free the username so it can be reused
         q("UPDATE users SET active = 0, username = CONCAT(username, '#', id) WHERE id = ?", [$id]);
         out(['ok' => true]);

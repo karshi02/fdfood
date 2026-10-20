@@ -28,6 +28,8 @@ const PRESETS = [
   { key: 'manager', label: 'แอดมิน', role: 'staff', perms: ['menu', 'discount', 'reduce', 'report', 'void'] },
   { key: 'staff', label: 'พนักงาน', role: 'staff', perms: [] },
 ];
+// non-owners may only touch accounts that hold nothing they don't (same rule as api.php user_save/user_del)
+const manageable = u => isOwner() || (u.role !== 'admin' && u.perms.every(can));
 const permNames = u => u.role === 'admin' ? 'ทุกสิทธิ์' : u.perms.map(p => S.permList[p]).join(', ') || 'สิทธิ์พื้นฐาน';
 
 function renderPermForm(role, perms) {
@@ -57,8 +59,8 @@ async function loadUsers() {
   if (!$('uId').value) renderPermForm(uRole, uRole === 'admin' ? [] : checkedPerms());
   $('userBody').innerHTML = users.map(u => `<tr><td>${esc(u.name)} <span class="muted">@${esc(u.username)}</span></td>
     <td><span class="role">${u.role === 'admin' ? 'เจ้าของร้าน' : 'พนักงาน'}</span><div class="muted">${esc(permNames(u))}</div></td>
-    <td class="num" style="white-space:nowrap">${u.role !== 'admin' || isOwner() ? `<button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>` : ''}
-    ${u.id !== ME.id && (u.role !== 'admin' || isOwner()) ? `<button class="btn ghost sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
+    <td class="num" style="white-space:nowrap">${manageable(u) ? `<button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>` : ''}
+    ${u.id !== ME.id && manageable(u) ? `<button class="btn ghost sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
   $('userBody').querySelectorAll('[data-uedit]').forEach(b => b.onclick = () => {
     const u = users.find(x => x.id == b.dataset.uedit);
     $('uId').value = u.id; $('uUser').value = u.username; $('uName').value = u.name; $('uPass').value = '';
