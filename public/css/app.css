@@ -268,7 +268,8 @@ nav button .ic { width: 24px; height: 24px; }
 nav button.on { background: linear-gradient(180deg, #fff0cc, var(--gold) 60%, var(--gold-2)); color: var(--brand-ink); border-color: transparent; box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
 nav .navbadge { position: absolute; top: 6px; right: 8px; margin: 0; background: #e11d48; }
 
-main > section > .row label, main > section > h2, main > section > p.muted, .legend { color: var(--on-dark-muted); }
+/* only text sitting straight on the maroon page; the chart .legend lives inside a white card and keeps --muted */
+main > section > .row label, main > section > h2, main > section > p.muted { color: var(--on-dark-muted); }
 
 /* stat cards */
 .stats.live { grid-template-columns: repeat(2, 1fr); gap: 12px; }
