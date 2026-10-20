@@ -1,7 +1,10 @@
 /* ---------- table modal ---------- */
 // cashIn survives re-renders, so another device's change doesn't wipe the amount the cashier typed
-let cur = null, curCat = '', payMethod = 'cash', cashIn = '';
-function openTable(id) { cur = id; curCat = ''; payMethod = 'cash'; cashIn = ''; $('modal').classList.remove('hidden'); renderModal(); }
+// resvTime likewise keeps a picked booking time across the 3-second sync re-render
+let cur = null, curCat = '', payMethod = 'cash', cashIn = '', resvTime = '';
+// datetime-local wants local time; toISOString() alone is UTC, 7 hours behind in Bangkok
+const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+function openTable(id) { cur = id; curCat = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; $('modal').classList.remove('hidden'); renderModal(); }
 function closeModal() { cur = null; $('modal').classList.add('hidden'); }
 $('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) closeModal(); });
@@ -25,7 +28,7 @@ function renderModal() {
     b.innerHTML = `<div class="card">
       <h2>${t.status === 'resv' ? 'ข้อมูลการจอง' : 'จองโต๊ะ'}</h2>
       <div class="row">
-        <div><label>วัน-เวลา</label><input id="rTime" type="datetime-local" value="${esc(String(r.time || '').replace(' ', 'T'))}"></div>
+        <div><label>วัน-เวลา</label><input id="rTime" type="datetime-local" value="${esc(resvTime || String(r.time || nowLocal()).replace(' ', 'T'))}"></div>
         <div><label>จำนวนคน</label><input id="rPax" type="number" min="1" value="${esc(r.pax)}"></div>
       </div>
       <div class="actions">
@@ -33,6 +36,7 @@ function renderModal() {
         ${t.status === 'resv' ? '<button class="btn danger" id="rCancel">ยกเลิกการจอง</button>' : ''}
         <button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button>
       </div></div>`;
+    $('rTime').oninput = e => { resvTime = e.target.value; };
     $('rSave').onclick = async () => {
       if (await act('resv_save', { table: t.id, time: $('rTime').value.replace('T', ' '), pax: Number($('rPax').value) })) closeModal();
     };
