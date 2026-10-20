@@ -97,7 +97,10 @@ $('menuOutOnly').onchange = renderMenu;
 $('bulkBtn').onclick = () => { $('bulkBox').classList.toggle('hidden'); if (!$('bulkBox').classList.contains('hidden')) $('bulkText').focus(); };
 // "name price cat": the LAST number is the price, so names may contain numbers ("เบียร์ 2 ขวด 150")
 function parseMenuLine(l) {
-  const w = l.split(/\s+/), i = w.findLastIndex(x => /^\d+(\.\d+)?$/.test(x.replace(/,/g, '')));
+  const w = l.split(/\s+/);
+  // manual loop: Array.findLastIndex is missing on older shop tablets (iOS < 15.4)
+  let i = w.length - 1;
+  while (i >= 0 && !/^\d+(\.\d+)?$/.test(w[i].replace(/,/g, ''))) i--;
   if (i < 1) return null;
   return { name: w.slice(0, i).join(' '), price: Number(w[i].replace(/,/g, '')), cat: w.slice(i + 1).join(' ') };
 }

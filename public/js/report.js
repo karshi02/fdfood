@@ -11,7 +11,7 @@ function dayData() {
   const ok = report.bills.filter(b => !b.void), byMethod = {}, items = {};
   ok.forEach(b => {
     byMethod[b.method] = (byMethod[b.method] || 0) + b.total;
-    b.items.forEach(i => { const x = items[i.name] ||= { name: i.name, qty: 0, amt: 0 }; x.qty += i.qty; x.amt += i.qty * i.price; });
+    b.items.forEach(i => { const x = items[i.name] || (items[i.name] = { name: i.name, qty: 0, amt: 0 }); x.qty += i.qty; x.amt += i.qty * i.price; });
   });
   return { bills: report.bills, ok, byMethod, total: ok.reduce((a, b) => a + b.total, 0), disc: ok.reduce((a, b) => a + b.disc, 0),
     top: Object.values(items).sort((a, b) => b.qty - a.qty) };
