@@ -10,7 +10,12 @@ ${BT.state().msg}
 }
 
 async function printKitchen(tableName, items) {
-  if (BT.useForKitchen() && await viaBluetooth(() => BT.printKitchen(tableName, items), 'ใบสั่งครัว')) return;
+  // no "cancel" here: the server already marked these items as sent and a kitchen ticket can't be reprinted,
+  // so a failed Bluetooth ticket always falls through to the browser print
+  if (BT.useForKitchen() && BT.active()) {
+    if (await BT.printKitchen(tableName, items)) return toast('พิมพ์ใบสั่งครัวแล้ว');
+    toast('พิมพ์ใบสั่งครัวผ่านบลูทูธไม่สำเร็จ — พิมพ์ผ่านเบราว์เซอร์แทน');
+  }
   $('receipt').className = 'kitchen';
   $('receipt').innerHTML = `<div class="c"><h3>โต๊ะ ${esc(tableName)}</h3><div>${new Date().toLocaleTimeString('th-TH')} · ${esc(ME.name)}</div></div><hr>
     <table>${items.map(i => `<tr><td><b>${i.qty} x ${esc(i.name)}</b>${i.note ? `<br>  * ${esc(i.note)}` : ''}</td></tr>`).join('')}</table><hr>`;

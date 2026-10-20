@@ -68,15 +68,19 @@ const BT = (() => {
 
   // printers drop the link when idle; reconnect to the same device without asking again
   const REBIND_STEPS_MS = [600, 2000, 5000, 10000, 20000, 30000];
-  let wantConnected = false, rebindTimer = null, rebindStep = 0;
+  let wantConnected = false, rebindTimer = null, rebindStep = 0, rebinding = false;
+  const watched = new WeakSet(); // devices that already have our disconnect listener
   function stopRebind() { if (rebindTimer) clearTimeout(rebindTimer); rebindTimer = null; rebindStep = 0; }
   async function rebindNow() {
-    if (!wantConnected || sink || !device) return;
+    // one reconnect at a time: the timer, a disconnect and the tab coming back can all ask at once
+    if (!wantConnected || sink || !device || rebinding) return;
+    rebinding = true;
     try {
       sink = await withTimeout(openSink(device), CONNECT_TIMEOUT_MS);
       stopRebind(); startKeepAwake();
       set({ status: 'ready', name: device.name || state.name, msg: '', bad: false });
     } catch { scheduleRebind(); }
+    finally { rebinding = false; }
   }
   function scheduleRebind() {
     if (!wantConnected || rebindTimer) return;
@@ -147,12 +151,17 @@ const BT = (() => {
       }
     }
     if (!found) throw new Error('เครื่องนี้ไม่มีช่องรับข้อมูลสำหรับพิมพ์');
-    dev.addEventListener('gattserverdisconnected', () => {
-      stopKeepAwake(); mxw = null; sink = null;
-      if (!wantConnected) return set({ status: 'none', msg: '', bad: false });
-      set({ status: 'connecting', msg: 'เครื่องพิมพ์หลับ — กำลังต่อกลับให้เอง', bad: false });
-      stopRebind(); rebindNow();
-    });
+    // openSink runs on every reconnect: listen once per device, or each sleep would fire one more rebind than the last
+    if (!watched.has(dev)) {
+      watched.add(dev);
+      dev.addEventListener('gattserverdisconnected', () => {
+        if (dev !== device) return; // a printer this page has since forgotten or replaced
+        stopKeepAwake(); mxw = null; sink = null;
+        if (!wantConnected) return set({ status: 'none', msg: '', bad: false });
+        set({ status: 'connecting', msg: 'เครื่องพิมพ์หลับ — กำลังต่อกลับให้เอง', bad: false });
+        stopRebind(); rebindNow();
+      });
+    }
     return found;
   }
 
