@@ -136,7 +136,7 @@ function renderModal() {
   $('jump').onclick = () => $('orderCard').scrollIntoView({ behavior: 'smooth' });
   // phone: hide the floating "view order" bar once the order card (with its own floating pay bar) is on screen
   if ('IntersectionObserver' in window) {
-    new IntersectionObserver(([e]) => $('jump') && $('jump').classList.toggle('off', e.isIntersecting), { threshold: 0.15 }).observe($('orderCard'));
+    new IntersectionObserver(([e]) => $('jump') && $('jump').classList.toggle('off', e.isIntersecting), { threshold: 0 }).observe($('orderCard'));
   }
 
   b.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => { curCat = x.dataset.cat; renderModal(); });

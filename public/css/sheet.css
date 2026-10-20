@@ -150,3 +150,15 @@
 .menu-grid.photo .mi .madd { display: grid; color: #fff; }
 /* light cards inside the maroon sheet (booking form, quick-add) keep dark text */
 .sheet .card, .sheet .qa { color: var(--ink); }
+/* photo area without aspect-ratio: older Android WebViews (LINE's in-app browser) don't support it,
+   which left the box at half width. A 75% top padding gives the same 4:3 box everywhere. */
+.menu-grid.photo .mi .mimg { display: block; position: relative; width: 100%; height: 0; padding-top: 75%; aspect-ratio: auto; }
+.menu-grid.photo .mi .mimg > .ic { position: absolute; left: 27%; top: 27%; width: 46%; height: 46%; }
+.menu-grid.photo .mi .mimg.photo img { position: absolute; inset: 0; }
+.menu-grid.photo .mi { align-items: stretch; width: 100%; }
+/* phones: the floating cart bar is the shortcut; pay buttons sit at the end of the order (as in the mockup)
+   instead of a second pinned bar stacked under it */
+@media (max-width: 760px) { .osheet .paybar { position: static; background: none; padding-top: 4px; } }
+/* three payment choices (cash / transfer / other): one row everywhere */
+.ptiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .ptiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ptile { flex-direction: column; gap: 4px; min-height: 64px; font-size: 13px; } }
