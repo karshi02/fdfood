@@ -6,7 +6,7 @@ set -eu
 umask 077 # dumps hold every bill and password hash: owner-only
 cd "$(dirname "$0")"
 mkdir -p backups
-ts=$(date +%Y-%m-%d_%H%M)
+ts=$(date +%Y-%m-%d_%H%M%S) # seconds: a deploy right after a backup must not collide
 out="backups/fdfood-$ts.sql"
 
 # MariaDB 11 images ship only mariadb-dump; MySQL ships only mysqldump.
