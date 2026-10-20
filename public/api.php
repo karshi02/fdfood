@@ -3,7 +3,9 @@ declare(strict_types=1);
 date_default_timezone_set('Asia/Bangkok');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-session_set_cookie_params(['httponly' => true, 'samesite' => 'Strict']);
+// behind the production nginx the browser talks https: keep the session cookie off plain http
+$https = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+session_set_cookie_params(['httponly' => true, 'samesite' => 'Strict', 'secure' => $https]);
 session_start();
 
 class AppError extends Exception {}
@@ -29,33 +31,66 @@ function tx(callable $f): mixed {
     catch (Throwable $e) { $pdo->rollBack(); throw $e; }
 }
 
-// upgrade databases created before check-bill existed
-if (!q("SHOW COLUMNS FROM dining_tables LIKE 'checked_at'")->fetch()) {
-    try { q('ALTER TABLE dining_tables ADD COLUMN checked_at DATETIME NULL, ADD COLUMN checked_total DECIMAL(10,2) NULL'); }
-    catch (PDOException) {} // another request added it first
+// upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
+const SCHEMA = 5;
+if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
+    if (!q("SHOW COLUMNS FROM users LIKE 'perms'")->fetch()) {
+        try { q("ALTER TABLE users ADD COLUMN perms VARCHAR(200) NOT NULL DEFAULT ''"); }
+        catch (PDOException) {} // another request added it first
+    }
+    if (!q("SHOW COLUMNS FROM dining_tables LIKE 'checked_at'")->fetch()) {
+        try { q('ALTER TABLE dining_tables ADD COLUMN checked_at DATETIME NULL, ADD COLUMN checked_total DECIMAL(10,2) NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
+    q("CREATE TABLE IF NOT EXISTS expenses (
+      id INT AUTO_INCREMENT PRIMARY KEY, spent_on DATE NOT NULL, cat VARCHAR(100) NOT NULL DEFAULT '', note VARCHAR(200) NOT NULL DEFAULT '',
+      amount DECIMAL(10,2) NOT NULL, created_by INT NULL, created_at DATETIME NOT NULL, INDEX (spent_on)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    // schema 3 keyed this by username only; the rows are short-lived, so just recreate it
+    if (q("SHOW TABLES LIKE 'login_fails'")->fetch() && q("SHOW COLUMNS FROM login_fails LIKE 'username'")->fetch()) q('DROP TABLE login_fails');
+    q("CREATE TABLE IF NOT EXISTS login_fails (
+      k VARCHAR(120) PRIMARY KEY, n INT NOT NULL DEFAULT 0, last_at DATETIME NOT NULL, locked_until DATETIME NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = GREATEST(v, VALUES(v))", [SCHEMA]);
 }
 
-// databases created before the expenses feature: init.sql only runs once, so add the table here
-q("CREATE TABLE IF NOT EXISTS expenses (
-  id INT AUTO_INCREMENT PRIMARY KEY, spent_on DATE NOT NULL, cat VARCHAR(100) NOT NULL DEFAULT '', note VARCHAR(200) NOT NULL DEFAULT '',
-  amount DECIMAL(10,2) NOT NULL, created_by INT NULL, created_at DATETIME NOT NULL, INDEX (spent_on)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+const DEFAULT_PASS = 'admin1234';
+const MAX_MONEY = 9999999; // DECIMAL(10,2) overflows past 99,999,999.99; anything near this is a typo
+function money($v, bool $zeroOk = true): ?float {
+    if (!is_numeric($v)) return null;
+    $v = round((float)$v, 2);
+    return ($zeroOk ? $v >= 0 : $v > 0) && $v <= MAX_MONEY ? $v : null;
+}
 
 // first run: create the owner account
 if (!q('SELECT COUNT(*) FROM users')->fetchColumn()) {
     q('INSERT INTO users (username, pass_hash, name, role) VALUES (?, ?, ?, ?)',
-        ['admin', password_hash('admin1234', PASSWORD_DEFAULT), 'เจ้าของร้าน', 'admin']);
+        ['admin', password_hash(DEFAULT_PASS, PASSWORD_DEFAULT), 'เจ้าของร้าน', 'admin']);
+}
+
+// every account can order, take payment and mark dishes out of stock; these are the extras an owner grants per user
+const PERMS = [
+    'menu' => 'แก้เมนู / ราคา', 'discount' => 'ให้ส่วนลด', 'reduce' => 'ลดรายการที่ส่งครัวแล้ว',
+    'report' => 'ดูยอดขาย / แดชบอร์ด / รายจ่าย', 'void' => 'ยกเลิกบิล', 'settings' => 'ตั้งค่าร้าน / จัดการโต๊ะ', 'users' => 'จัดการผู้ใช้',
+];
+// role 'admin' is the owner: always every permission, so the shop can't lock itself out
+function perms_of(array $u): array {
+    if ($u['role'] === 'admin') return array_keys(PERMS);
+    return array_values(array_intersect(array_keys(PERMS), explode(',', (string)($u['perms'] ?? ''))));
 }
 
 $me = null;
 if (isset($_SESSION['uid'])) {
-    $me = q('SELECT id, username, name, role FROM users WHERE id = ? AND active = 1', [$_SESSION['uid']])->fetch() ?: null;
-    if ($me) $me['id'] = (int)$me['id'];
+    $me = q('SELECT id, username, name, role, perms FROM users WHERE id = ? AND active = 1', [$_SESSION['uid']])->fetch() ?: null;
+    if ($me) { $me['id'] = (int)$me['id']; $me['perms'] = perms_of($me); $me['weak'] = !empty($_SESSION['weak']); }
 }
-function need(string $role = 'staff'): void {
+function can(string $perm): bool { global $me; return $me && in_array($perm, $me['perms'], true); }
+function need(string $perm = ''): void {
     global $me;
     if (!$me) fail('กรุณาเข้าสู่ระบบ', 401);
-    if ($role === 'admin' && $me['role'] !== 'admin') fail('เฉพาะเจ้าของร้าน/แอดมินเท่านั้น', 403);
+    // the default password is public: nothing works until it is changed
+    if ($me['weak']) fail('ต้องเปลี่ยนรหัสผ่านเริ่มต้นก่อนใช้งาน (ปุ่ม "เปลี่ยนรหัส")', 403);
+    if ($perm !== '' && !can($perm)) fail('ไม่มีสิทธิ์: ' . PERMS[$perm] . ' — ให้เจ้าของร้านเปิดสิทธิ์ให้', 403);
 }
 
 function settings(): array {
@@ -96,7 +131,7 @@ function state(): array {
     foreach (q('SELECT * FROM menu WHERE active = 1 ORDER BY id') as $m) {
         $menu[] = ['id' => (int)$m['id'], 'name' => $m['name'], 'price' => (float)$m['price'], 'cat' => $m['cat'], 'out' => (bool)$m['out_of_stock']];
     }
-    return ['ver' => ver(), 'me' => $me, 'settings' => settings(), 'menu' => $menu, 'tables' => $tables];
+    return ['ver' => ver(), 'me' => $me, 'permList' => PERMS, 'settings' => settings(), 'menu' => $menu, 'tables' => $tables];
 }
 
 function bill_out(array $b): array {
@@ -122,13 +157,21 @@ function lock_item(int $id): array {
     return $i;
 }
 const CLEAR_TABLE = "status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
+// in production only nginx can reach the app (it listens on 127.0.0.1), so trust its X-Real-IP when the peer is a private address
+function client_ip(): string {
+    $peer = $_SERVER['REMOTE_ADDR'] ?? '';
+    $real = $_SERVER['HTTP_X_REAL_IP'] ?? '';
+    $public = filter_var($peer, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    return !$public && filter_var($real, FILTER_VALIDATE_IP) ? $real : $peer;
+}
 function str(array $in, string $k, int $max = 150): string { return mb_substr(trim((string)($in[$k] ?? '')), 0, $max); }
 
 $a = $_GET['a'] ?? '';
 $in = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!str_starts_with($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')) out(['error' => 'bad request'], 400);
-    $in = json_decode(file_get_contents('php://input'), true) ?? [];
+    $in = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($in)) $in = [];
 } elseif (!in_array($a, ['state', 'ver', 'bills', 'dash', 'users', 'me'], true)) {
     out(['error' => 'ต้องใช้ POST'], 405);
 }
@@ -140,21 +183,44 @@ try {
     case 'me':
         out($me ? state() : ['me' => null]);
     case 'login':
-        $u = q('SELECT * FROM users WHERE username = ? AND active = 1', [str($in, 'username', 50)])->fetch();
-        if (!$u || !password_verify((string)($in['password'] ?? ''), $u['pass_hash'])) { sleep(1); fail('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 401); }
+        $username = str($in, 'username', 50);
+        $pass = (string)($in['password'] ?? '');
+        // the site is on the internet: lock this user from this IP after 5 misses, and the whole IP after 30.
+        // keying by IP too means an outsider can't lock the owner out of the shop's own devices
+        $ip = client_ip();
+        $limits = ["u:$username|$ip" => 5, "ip:$ip" => 30];
+        $lock = q('SELECT MAX(locked_until) FROM login_fails WHERE k IN (?, ?) AND locked_until > ?', [...array_keys($limits), now()])->fetchColumn();
+        if ($lock) fail('ใส่รหัสผิดหลายครั้ง — ลองใหม่หลัง ' . substr($lock, 11, 5) . ' น.', 429);
+        $u = q('SELECT * FROM users WHERE username = ? AND active = 1', [$username])->fetch();
+        if (!$u || !password_verify($pass, $u['pass_hash'])) {
+            $t = now();
+            foreach ($limits as $k => $max) {
+                // misses more than 15 minutes apart don't add up
+                q('INSERT INTO login_fails (k, n, last_at) VALUES (?, 1, ?)
+                   ON DUPLICATE KEY UPDATE n = IF(last_at < ? - INTERVAL 15 MINUTE, 1, n + 1), last_at = VALUES(last_at)', [$k, $t, $t]);
+                q('UPDATE login_fails SET n = 0, locked_until = ? + INTERVAL 5 MINUTE WHERE k = ? AND n >= ?', [$t, $k, $max]);
+            }
+            q('DELETE FROM login_fails WHERE last_at < ? - INTERVAL 1 DAY AND (locked_until IS NULL OR locked_until < ?)', [$t, $t]);
+            fail('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 401);
+        }
+        q('DELETE FROM login_fails WHERE k = ?', ["u:$username|$ip"]);
         session_regenerate_id(true);
         $_SESSION['uid'] = (int)$u['id'];
-        $me = ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role']];
+        $_SESSION['weak'] = $pass === DEFAULT_PASS;
+        $me = ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'perms' => perms_of($u), 'weak' => $_SESSION['weak']];
         out(state());
     case 'logout':
         session_destroy();
         out(['me' => null]);
     case 'password':
-        need();
+        if (!$me) fail('กรุณาเข้าสู่ระบบ', 401);
         $u = q('SELECT pass_hash FROM users WHERE id = ?', [$me['id']])->fetch();
         if (!password_verify((string)($in['old'] ?? ''), $u['pass_hash'])) fail('รหัสเดิมไม่ถูกต้อง');
-        if (mb_strlen((string)($in['new'] ?? '')) < 4) fail('รหัสใหม่ต้องยาวอย่างน้อย 4 ตัว');
-        q('UPDATE users SET pass_hash = ? WHERE id = ?', [password_hash((string)$in['new'], PASSWORD_DEFAULT), $me['id']]);
+        $new = (string)($in['new'] ?? '');
+        if (mb_strlen($new) < 4) fail('รหัสใหม่ต้องยาวอย่างน้อย 4 ตัว');
+        if ($new === DEFAULT_PASS) fail('ห้ามใช้รหัสเริ่มต้น');
+        q('UPDATE users SET pass_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $me['id']]);
+        $_SESSION['weak'] = false;
         out(['ok' => true]);
 
     case 'state': need(); out(state());
@@ -169,7 +235,7 @@ try {
             $name = str($in, 'name', 100);
             if ($name === '') fail('กรอกชื่อลูกค้า');
             q("UPDATE dining_tables SET status = 'resv', resv_name = ?, resv_phone = ?, resv_time = ?, resv_pax = ? WHERE id = ?",
-                [$name, str($in, 'phone', 30), str($in, 'time', 20), max(1, (int)($in['pax'] ?? 1)), $t['id']]);
+                [$name, str($in, 'phone', 30), str($in, 'time', 20), min(999, max(1, (int)($in['pax'] ?? 1))), $t['id']]);
         });
         break;
     case 'resv_cancel':
@@ -202,6 +268,8 @@ try {
             [$f, $t] = [$rows[$from], $rows[$to]];
             if ($f['status'] !== 'busy') fail('โต๊ะต้นทางไม่มีลูกค้า');
             if ($t['status'] === 'resv') fail('โต๊ะปลายทางถูกจองไว้');
+            // a merged bill keeps only the target's discount: don't let the source's discount vanish silently
+            if ($t['status'] === 'busy' && $f['disc_type']) fail("โต๊ะ {$f['name']} มีส่วนลดอยู่ — ลบส่วนลดก่อนรวมโต๊ะ แล้วค่อยให้ส่วนลดที่โต๊ะ {$t['name']}");
             q('UPDATE order_items SET table_id = ? WHERE table_id = ?', [$to, $from]);
             if ($t['status'] === 'busy') {
                 q('UPDATE dining_tables SET opened_at = LEAST(opened_at, ?) WHERE id = ?', [$f['opened_at'], $to]);
@@ -231,7 +299,7 @@ try {
         tx(function () use ($in, $me) {
             $i = lock_item((int)($in['item'] ?? 0));
             $d = (int)($in['delta'] ?? 0) < 0 ? -1 : 1;
-            if ($d < 0 && $i['qty'] <= $i['sent'] && $me['role'] !== 'admin') fail('รายการนี้ส่งครัวแล้ว — ให้เจ้าของร้าน/แอดมินเป็นคนลด');
+            if ($d < 0 && $i['qty'] <= $i['sent'] && !can('reduce')) fail('รายการนี้ส่งครัวแล้ว — ต้องมีสิทธิ์ "ลดรายการที่ส่งครัวแล้ว"');
             $qty = $i['qty'] + $d;
             if ($qty <= 0) q('DELETE FROM order_items WHERE id = ?', [$i['id']]);
             else q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?) WHERE id = ?', [$qty, $qty, $i['id']]);
@@ -245,9 +313,11 @@ try {
             // a note on a multi-portion line applies to one portion: split it off
             if ($i['qty'] > 1 && $i['note'] === '' && $note !== '') {
                 $qty = $i['qty'] - 1;
+                // take an unsent portion if there is one; if every portion already went to the kitchen, the split-off one counts as sent too
+                $splitSent = $i['sent'] >= $i['qty'] ? 1 : 0;
                 q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?) WHERE id = ?', [$qty, $qty, $i['id']]);
-                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by) VALUES (?, ?, ?, ?, 1, 0, ?, ?)',
-                    [$i['table_id'], $i['menu_id'], $i['name'], $i['price'], $note, $i['created_by']]);
+                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by) VALUES (?, ?, ?, ?, 1, ?, ?, ?)',
+                    [$i['table_id'], $i['menu_id'], $i['name'], $i['price'], $splitSent, $note, $i['created_by']]);
             } else {
                 q('UPDATE order_items SET note = ? WHERE id = ?', [$note, $i['id']]);
             }
@@ -283,7 +353,7 @@ try {
             $method = in_array($in['method'] ?? '', ['cash', 'qr', 'transfer', 'card'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
             $s = settings();
             $c = calc($items, $t['disc_type'], $t['disc_value'], $s);
-            $cash = isset($in['cash']) && $in['cash'] !== null && $method === 'cash' ? round((float)$in['cash'], 2) : null;
+            $cash = isset($in['cash']) && $method === 'cash' ? (money($in['cash']) ?? fail('จำนวนเงินที่รับไม่ถูกต้อง')) : null;
             if ($cash !== null && $cash < $c['total']) fail('รับเงินไม่พอ');
             q('INSERT INTO bills (table_name, created_at, sub, disc, service, vat, total, service_pct, vat_pct, method, cash, change_amt, cashier_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 [$t['name'], now(), $c['sub'], $c['disc'], $c['service'], $c['vat'], $c['total'], (float)$s['service'], (float)$s['vat'],
@@ -303,18 +373,18 @@ try {
 
     /* ---------- admin ---------- */
     case 'discount':
-        need('admin');
+        need('discount');
         tx(function () use ($in) {
             $t = lock_table((int)($in['table'] ?? 0));
             $type = in_array($in['type'] ?? '', ['amt', 'pct'], true) ? $in['type'] : null;
-            $val = (float)($in['value'] ?? 0);
+            $val = money($in['value'] ?? 0) ?? fail('ส่วนลดไม่ถูกต้อง');
             if ($type === null || $val <= 0) q('UPDATE dining_tables SET disc_type = NULL, disc_value = NULL WHERE id = ?', [$t['id']]);
             else q('UPDATE dining_tables SET disc_type = ?, disc_value = ? WHERE id = ?', [$type, $type === 'pct' ? min(100, $val) : $val, $t['id']]);
         });
         break;
     case 'table_void':
         // admin closes a table without payment: keep a voided bill so the report still shows what was cancelled
-        need('admin');
+        need('void');
         tx(function () use ($in, $me) {
             global $pdo;
             $t = lock_table((int)($in['table'] ?? 0));
@@ -333,57 +403,65 @@ try {
         });
         break;
     case 'menu_save':
-        need('admin');
+        need('menu');
         tx(function () use ($in) {
             $name = str($in, 'name');
-            if ($name === '' || !is_numeric($in['price'] ?? null) || $in['price'] < 0) fail('ใส่ชื่อและราคาให้ถูกต้อง');
-            if (!empty($in['id'])) q('UPDATE menu SET name = ?, price = ?, cat = ? WHERE id = ?', [$name, $in['price'], str($in, 'cat', 100), (int)$in['id']]);
-            else q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $in['price'], str($in, 'cat', 100)]);
+            $price = money($in['price'] ?? null);
+            if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
+            if (!empty($in['id'])) q('UPDATE menu SET name = ?, price = ?, cat = ? WHERE id = ?', [$name, $price, str($in, 'cat', 100), (int)$in['id']]);
+            else q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($in, 'cat', 100)]);
             global $pdo;
             return (int)($in['id'] ?? 0) ?: (int)$pdo->lastInsertId();
         });
         break;
     case 'menu_add_order':
         // admin adds a brand-new dish from the table screen and orders it at once
-        need('admin');
+        need('menu');
         tx(function () use ($in, $me) {
             global $pdo;
             $t = lock_table((int)($in['table'] ?? 0));
             if ($t['status'] !== 'busy') fail('ยังไม่ได้เปิดโต๊ะ');
             $name = str($in, 'name');
-            if ($name === '' || !is_numeric($in['price'] ?? null) || $in['price'] < 0) fail('ใส่ชื่อและราคาให้ถูกต้อง');
-            q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $in['price'], str($in, 'cat', 100)]);
-            q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by) VALUES (?, ?, ?, ?, 1, ?)', [$t['id'], (int)$pdo->lastInsertId(), $name, $in['price'], $me['id']]);
+            $price = money($in['price'] ?? null);
+            if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
+            q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($in, 'cat', 100)]);
+            q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by) VALUES (?, ?, ?, ?, 1, ?)', [$t['id'], (int)$pdo->lastInsertId(), $name, $price, $me['id']]);
         });
         break;
     case 'menu_bulk':
-        need('admin');
+        need('menu');
         $extra['added'] = tx(function () use ($in) {
             $have = array_flip(q('SELECT name FROM menu WHERE active = 1')->fetchAll(PDO::FETCH_COLUMN));
             $n = 0;
             foreach (array_slice((array)($in['items'] ?? []), 0, 500) as $m) {
-                $name = str((array)$m, 'name');
-                if ($name === '' || isset($have[$name]) || !is_numeric($m['price'] ?? null)) continue;
-                q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $m['price'], str((array)$m, 'cat', 100)]);
+                $m = (array)$m;
+                $name = str($m, 'name');
+                $price = money($m['price'] ?? null);
+                if ($name === '' || isset($have[$name]) || $price === null) continue;
+                q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($m, 'cat', 100)]);
                 $have[$name] = 1; $n++;
             }
             return $n;
         });
         break;
     case 'menu_del':
-        need('admin');
+        need('menu');
         tx(fn() => q('UPDATE menu SET active = 0 WHERE id = ?', [(int)($in['id'] ?? 0)]));
         break;
     case 'settings_save':
-        need('admin');
+        need('settings');
         tx(function () use ($in) {
+            // a negative or >100 percentage would make every bill wrong
+            foreach (['service', 'vat'] as $k) {
+                if (!is_numeric($in[$k] ?? 0) || $in[$k] < 0 || $in[$k] > 100) fail('Service / VAT ต้องอยู่ระหว่าง 0–100%');
+            }
             foreach (['name', 'addr', 'phone', 'service', 'vat', 'promptpay', 'footer'] as $k) {
                 q('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, str($in, $k, 500)]);
             }
         });
         break;
     case 'table_add':
-        need('admin');
+        need('settings');
         tx(function () use ($in) {
             $name = str($in, 'name', 50);
             if ($name === '') fail('ใส่ชื่อโต๊ะ');
@@ -391,7 +469,7 @@ try {
         });
         break;
     case 'table_del':
-        need('admin');
+        need('settings');
         tx(function () use ($in) {
             $t = lock_table((int)($in['id'] ?? 0));
             if ($t['status'] !== 'free') fail('โต๊ะไม่ว่าง');
@@ -399,13 +477,13 @@ try {
         });
         break;
     case 'bills':
-        need('admin');
+        need('report');
         $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
         $rows = q('SELECT b.*, u.name AS cashier FROM bills b LEFT JOIN users u ON u.id = b.cashier_id WHERE b.created_at >= ? AND b.created_at < ? + INTERVAL 1 DAY ORDER BY b.id',
             [$date, $date])->fetchAll();
         out(['bills' => array_map('bill_out', $rows)]);
     case 'dash':
-        need('admin');
+        need('report');
         $ymd = fn($k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET[$k] ?? '') ? $_GET[$k] : date('Y-m-d');
         [$from, $to] = [$ymd('from'), $ymd('to')];
         if ($from > $to) [$from, $to] = [$to, $from];
@@ -432,50 +510,63 @@ try {
                 q('SELECT e.*, u.name AS `by` FROM expenses e LEFT JOIN users u ON u.id = e.created_by WHERE e.spent_on BETWEEN ? AND ? ORDER BY e.spent_on DESC, e.id DESC', [$from, $to])->fetchAll()),
         ]);
     case 'expense_save':
-        need('admin');
+        need('report');
         $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($in['date'] ?? '')) ? $in['date'] : fail('เลือกวันที่');
-        if (!is_numeric($in['amount'] ?? null) || $in['amount'] <= 0) fail('ใส่จำนวนเงินให้ถูกต้อง');
+        if (!checkdate((int)substr($date, 5, 2), (int)substr($date, 8, 2), (int)substr($date, 0, 4))) fail('วันที่ไม่ถูกต้อง');
+        $amount = money($in['amount'] ?? null, false) ?? fail('ใส่จำนวนเงินให้ถูกต้อง');
         $cat = str($in, 'cat', 100);
         if ($cat === '') fail('ใส่หมวดรายจ่าย');
         $id = (int)($in['id'] ?? 0);
-        if ($id) q('UPDATE expenses SET spent_on = ?, cat = ?, note = ?, amount = ? WHERE id = ?', [$date, $cat, str($in, 'note', 200), round((float)$in['amount'], 2), $id]);
-        else q('INSERT INTO expenses (spent_on, cat, note, amount, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)', [$date, $cat, str($in, 'note', 200), round((float)$in['amount'], 2), $me['id'], now()]);
+        // tx() bumps ver so other open devices notice the change
+        tx(fn() => $id
+            ? q('UPDATE expenses SET spent_on = ?, cat = ?, note = ?, amount = ? WHERE id = ?', [$date, $cat, str($in, 'note', 200), $amount, $id])
+            : q('INSERT INTO expenses (spent_on, cat, note, amount, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)', [$date, $cat, str($in, 'note', 200), $amount, $me['id'], now()]));
         out(['ok' => true]);
     case 'expense_del':
-        need('admin');
-        q('DELETE FROM expenses WHERE id = ?', [(int)($in['id'] ?? 0)]);
+        need('report');
+        tx(fn() => q('DELETE FROM expenses WHERE id = ?', [(int)($in['id'] ?? 0)]));
         out(['ok' => true]);
     case 'bill_void':
-        need('admin');
+        need('void');
         tx(fn() => q('UPDATE bills SET void = 1, void_by = ? WHERE id = ?', [$me['id'], (int)($in['no'] ?? 0)]));
         break;
     case 'users':
-        need('admin');
-        out(['users' => array_map(fn($u) => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role']],
-            q('SELECT id, username, name, role FROM users WHERE active = 1 ORDER BY role, id')->fetchAll())]);
+        need('users');
+        out(['users' => array_map(fn($u) => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'perms' => perms_of($u)],
+            q('SELECT id, username, name, role, perms FROM users WHERE active = 1 ORDER BY role, id')->fetchAll())]);
     case 'user_save':
-        need('admin');
+        need('users');
         $id = (int)($in['id'] ?? 0);
         $username = str($in, 'username', 50); $name = str($in, 'name', 100);
         $role = ($in['role'] ?? '') === 'admin' ? 'admin' : 'staff';
+        $perms = $role === 'admin' ? [] : array_values(array_intersect(array_keys(PERMS), (array)($in['perms'] ?? [])));
         $pass = (string)($in['password'] ?? '');
         if ($username === '' || $name === '') fail('ใส่ชื่อผู้ใช้และชื่อ');
         if (!$id && mb_strlen($pass) < 4) fail('รหัสผ่านต้องยาวอย่างน้อย 4 ตัว');
         if ($pass !== '' && mb_strlen($pass) < 4) fail('รหัสผ่านต้องยาวอย่างน้อย 4 ตัว');
-        if ($id === $me['id'] && $role !== 'admin') fail('ลดสิทธิ์ตัวเองไม่ได้');
+        $target = $id ? (q('SELECT role, perms FROM users WHERE id = ? AND active = 1', [$id])->fetch() ?: fail('ไม่พบผู้ใช้')) : null;
+        if ($me['role'] !== 'admin') {
+            // someone given "manage users" must not be able to hand out more than they have
+            if ($role === 'admin' || ($target && $target['role'] === 'admin')) fail('เฉพาะเจ้าของร้านเท่านั้นที่ตั้ง/แก้บัญชีเจ้าของร้านได้', 403);
+            if (array_diff($perms, $me['perms'])) fail('ให้สิทธิ์ที่ตัวเองไม่มีไม่ได้', 403);
+            if ($id === $me['id']) $perms = perms_of($target);
+        }
+        if ($id === $me['id'] && $me['role'] === 'admin' && $role !== 'admin') fail('ลดสิทธิ์ตัวเองไม่ได้');
         if (q('SELECT id FROM users WHERE username = ? AND id <> ?', [$username, $id])->fetch()) fail('ชื่อผู้ใช้นี้มีแล้ว');
         if ($id) {
-            q('UPDATE users SET username = ?, name = ?, role = ?, active = 1 WHERE id = ?', [$username, $name, $role, $id]);
+            q('UPDATE users SET username = ?, name = ?, role = ?, perms = ? WHERE id = ?', [$username, $name, $role, implode(',', $perms), $id]);
             if ($pass !== '') q('UPDATE users SET pass_hash = ? WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
         } else {
-            q('INSERT INTO users (username, pass_hash, name, role) VALUES (?, ?, ?, ?)', [$username, password_hash($pass, PASSWORD_DEFAULT), $name, $role]);
+            q('INSERT INTO users (username, pass_hash, name, role, perms) VALUES (?, ?, ?, ?, ?)', [$username, password_hash($pass, PASSWORD_DEFAULT), $name, $role, implode(',', $perms)]);
         }
         out(['ok' => true]);
     case 'user_del':
-        need('admin');
-        if ((int)($in['id'] ?? 0) === $me['id']) fail('ลบตัวเองไม่ได้');
+        need('users');
+        $id = (int)($in['id'] ?? 0);
+        if ($id === $me['id']) fail('ลบตัวเองไม่ได้');
+        if ($me['role'] !== 'admin' && q("SELECT 1 FROM users WHERE id = ? AND role = 'admin'", [$id])->fetch()) fail('เฉพาะเจ้าของร้านเท่านั้นที่ลบบัญชีเจ้าของร้านได้', 403);
         // free the username so it can be reused
-        q("UPDATE users SET active = 0, username = CONCAT(username, '#', id) WHERE id = ?", [(int)($in['id'] ?? 0)]);
+        q("UPDATE users SET active = 0, username = CONCAT(username, '#', id) WHERE id = ?", [$id]);
         out(['ok' => true]);
     default:
         fail('unknown action', 404);

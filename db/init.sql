@@ -6,6 +6,7 @@ CREATE TABLE users (
   pass_hash VARCHAR(255) NOT NULL,
   name VARCHAR(100) NOT NULL,
   role ENUM('admin','staff') NOT NULL DEFAULT 'staff',
+  perms VARCHAR(200) NOT NULL DEFAULT '',
   active TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

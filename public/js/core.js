@@ -7,8 +7,11 @@ const pad = n => String(n).padStart(2, '0');
 const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 const toDate = s => new Date(String(s).replace(' ', 'T')); // MySQL DATETIME -> local Date
 
-let S = { settings: {}, menu: [], tables: [] }, ME = null, ver = 0;
-const isAdmin = () => ME && ME.role === 'admin';
+let S = { settings: {}, menu: [], tables: [], permList: {} }, ME = null, ver = 0;
+const isOwner = () => !!ME && ME.role === 'admin';
+const can = p => !!ME && (ME.perms || []).includes(p);
+// an element marked data-perm="a b" shows when the user has any of those permissions
+const canAny = list => list.split(' ').some(can);
 
 /* ---------- server ---------- */
 async function api(action, body) {
@@ -32,8 +35,10 @@ function toast(msg) {
 
 function apply(d, fromPoll) {
   ver = d.ver; ME = d.me;
-  S = { settings: d.settings, menu: d.menu, tables: d.tables };
+  S = { settings: d.settings, menu: d.menu, tables: d.tables, permList: d.permList || {} };
   render();
+  // a sale or expense on another device changes the dashboard numbers
+  if (fromPoll && can('report') && !$('tab-dash').classList.contains('hidden')) loadDash();
   if (!cur) return;
   if (!S.tables.some(t => t.id === cur)) return closeModal();
   // don't wipe what someone is typing in the open table when another device changes something
@@ -55,13 +60,12 @@ async function poll() {
 }
 
 /* ---------- login ---------- */
-function showLogin() { ME = null; $('login').classList.remove('hidden'); $('lPass').value = ''; $('lUser').focus(); }
+function showLogin() { ME = null; closeModal(); $('login').classList.remove('hidden'); $('lPass').value = ''; $('lUser').focus(); }
 $('loginForm').onsubmit = async e => {
   e.preventDefault(); $('lErr').textContent = '';
   try {
     await api('login', { username: $('lUser').value.trim(), password: $('lPass').value }); $('login').classList.add('hidden'); showTab('tables');
-    // first-run password is public in the code: make the owner replace it
-    if ($('lPass').value === 'admin1234') { alert('ยังใช้รหัสผ่านเริ่มต้นอยู่ — กรุณาเปลี่ยนรหัสก่อนใช้งานจริง'); $('chPass').click(); }
+    nagWeak();
   }
   catch (err) { $('lErr').textContent = err.message; }
 };
@@ -72,17 +76,23 @@ $('logout').onclick = async () => {
 $('chPass').onclick = async () => {
   const old = prompt('รหัสผ่านเดิม'); if (old === null) return;
   const nw = prompt('รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)'); if (!nw) return;
-  if (await act('password', { old, new: nw })) alert('เปลี่ยนรหัสแล้ว');
+  if (await act('password', { old, new: nw })) { alert('เปลี่ยนรหัสแล้ว'); if (ME) ME.weak = false; }
 };
+// the server blocks everything while the public default password is in use
+function nagWeak() {
+  if (ME && ME.weak) { alert('ยังใช้รหัสผ่านเริ่มต้นอยู่ — ต้องเปลี่ยนรหัสก่อนใช้งาน'); $('chPass').click(); }
+}
 
 /* ---------- tabs ---------- */
 function showTab(name) {
-  if (!isAdmin() && ['dash', 'report', 'settings'].includes(name)) name = 'tables';
+  const gate = { dash: 'report', report: 'report', settings: 'settings users' };
+  if (gate[name] && !canAny(gate[name])) name = 'tables';
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
   document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + name));
-  if (name === 'dash') loadDash();
-  if (name === 'report') loadReport();
-  if (name === 'settings') loadUsers();
+  // the page may have been open since yesterday: re-anchor "today" unless a date was picked by hand
+  if (name === 'dash') { if (dashPreset) setPreset(dashPreset); else loadDash(); if (!$('eId').value) $('eDate').value = dayKey(Date.now()); }
+  if (name === 'report') { if (!rDatePicked) $('rDate').value = dayKey(Date.now()); loadReport(); }
+  if (name === 'settings' && can('users')) loadUsers();
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 

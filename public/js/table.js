@@ -1,6 +1,7 @@
 /* ---------- table modal ---------- */
-let cur = null, curCat = '', payMethod = 'cash';
-function openTable(id) { cur = id; curCat = ''; payMethod = 'cash'; $('modal').classList.remove('hidden'); renderModal(); }
+// cashIn survives re-renders, so another device's change doesn't wipe the amount the cashier typed
+let cur = null, curCat = '', payMethod = 'cash', cashIn = '';
+function openTable(id) { cur = id; curCat = ''; payMethod = 'cash'; cashIn = ''; $('modal').classList.remove('hidden'); renderModal(); }
 function closeModal() { cur = null; $('modal').classList.add('hidden'); }
 $('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) closeModal(); });
@@ -46,7 +47,7 @@ function renderModal() {
   b.innerHTML = `<div class="split">
     <div class="card">
       <div class="sheet-head" style="margin-bottom:8px"><h2 style="margin:0">เมนู (กดเพื่อสั่ง)</h2>
-        ${isAdmin() ? '<button class="btn sm" id="qaToggle">+ เมนูใหม่</button>' : ''}</div>
+        ${can('menu') ? '<button class="btn sm" id="qaToggle">+ เมนูใหม่</button>' : ''}</div>
       <div id="qa" class="qa hidden">
         <div class="row">
           <div><label>ชื่อเมนู</label><input id="qaName"></div>
@@ -67,7 +68,7 @@ function renderModal() {
         <td><span class="qty"><button data-q="${i.id}" data-d="-1">−</button>${i.qty}<button data-q="${i.id}" data-d="1">+</button></span></td>
         <td class="num">${baht(i.price * i.qty)}</td></tr>`).join('') || '<tr><td class="muted">ยังไม่มีรายการ</td></tr>'}</tbody></table>
       <div class="actions"><button class="btn sm" id="kitchen" ${pendingQty ? '' : 'disabled'}>ส่งครัว (${pendingQty})</button>
-        ${isAdmin() ? `<button class="btn ghost sm" id="disc" ${has ? '' : 'disabled'}>${t.discount ? 'แก้ส่วนลด' : 'ส่วนลด'}</button>` : ''}</div>
+        ${can('discount') ? `<button class="btn ghost sm" id="disc" ${has ? '' : 'disabled'}>${t.discount ? 'แก้ส่วนลด' : 'ส่วนลด'}</button>` : ''}</div>
       <div style="margin-top:10px">
         <div class="line"><span>รวม</span><span>${baht(c.sub)}</span></div>
         ${c.disc ? `<div class="line"><span>ส่วนลด${t.discount.type === 'pct' ? ' ' + t.discount.value + '%' : ''}</span><span>-${baht(c.disc)}</span></div>` : ''}
@@ -79,7 +80,7 @@ function renderModal() {
         ? `เช็คบิลแล้ว ${toDate(t.checked.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} · รอชำระ`
         : `ยอดเปลี่ยนจากตอนเช็คบิล (฿${baht(t.checked.total)}) — กดเช็คบิลพิมพ์ใหม่`}</p>` : ''}
       <div class="cats">${Object.entries(METHODS).map(([k, v]) => `<button class="chip ${k === payMethod ? 'on' : ''}" data-m="${k}">${v}</button>`).join('')}</div>
-      ${payMethod === 'cash' ? `<div class="row"><div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01"></div>
+      ${payMethod === 'cash' ? `<div class="row"><div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" value="${esc(cashIn)}"></div>
         <div><label>เงินทอน</label><input id="change" readonly></div></div>
         <div class="actions" style="margin-top:6px">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}">${n}</button>`).join('')}<button class="chip" data-cash="${c.total}">พอดี</button></div>` : ''}
       ${payMethod === 'qr' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">ให้แอดมินตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" ก่อน</p>') : ''}
@@ -87,7 +88,7 @@ function renderModal() {
         <button class="btn brand lg" id="pay" ${has ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
         <button class="btn ghost" style="flex:1" id="preview" ${has ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
         ${has ? '' : '<button class="btn danger" id="cancelOpen">ยกเลิกเปิดโต๊ะ</button>'}
-        ${has && isAdmin() ? '<button class="btn danger" id="voidTable">ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</button>' : ''}
+        ${has && can('void') ? '<button class="btn danger" id="voidTable">ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</button>' : ''}
       </div>
     </div></div>
     <button class="btn brand jump" id="jump"><span>ดูรายการ / ชำระเงิน (${t.order.reduce((a, i) => a + i.qty, 0)})</span><span>฿${baht(c.total)}</span></button>`;
@@ -130,15 +131,18 @@ function renderModal() {
     const v = prompt('ส่วนลด: พิมพ์ตัวเลข = บาท, ลงท้าย % = เปอร์เซ็นต์ (เช่น 50 หรือ 10%) — เว้นว่างเพื่อลบ', t.discount ? t.discount.value + (t.discount.type === 'pct' ? '%' : '') : '');
     if (v === null) return;
     const n = parseFloat(v);
+    if (v.trim() && !(n > 0)) return alert('ส่วนลดต้องเป็นตัวเลขมากกว่า 0 (เว้นว่างเพื่อลบส่วนลด)');
     act('discount', { table: t.id, type: v.trim() && n > 0 ? (v.includes('%') ? 'pct' : 'amt') : null, value: n || 0 });
   };
   if ($('cash')) {
     const upd = () => {
-      const v = Number($('cash').value);
-      $('change').value = $('cash').value ? (v >= c.total ? baht(v - c.total) : 'เงินไม่พอ') : '';
+      cashIn = $('cash').value;
+      const v = Number(cashIn);
+      $('change').value = cashIn ? (v >= c.total ? baht(v - c.total) : 'เงินไม่พอ') : '';
     };
     $('cash').oninput = upd;
     b.querySelectorAll('[data-cash]').forEach(x => x.onclick = () => { $('cash').value = x.dataset.cash; upd(); });
+    upd();
   }
   $('preview').onclick = async () => {
     if (pendingQty && !confirm('มีรายการยังไม่ส่งครัว — เช็คบิลต่อเลย?')) return;

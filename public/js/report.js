@@ -1,6 +1,7 @@
 /* ---------- report (admin) ---------- */
 $('rDate').value = dayKey(Date.now());
-$('rDate').onchange = loadReport;
+let rDatePicked = false;
+$('rDate').onchange = () => { rDatePicked = $('rDate').value !== dayKey(Date.now()); loadReport(); };
 let report = { bills: [] };
 async function loadReport() {
   const d = await act('bills&date=' + $('rDate').value);

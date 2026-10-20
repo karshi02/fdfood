@@ -3,11 +3,11 @@ const cats = () => [...new Set(S.menu.map(m => m.cat).filter(Boolean))];
 function render() {
   if (!ME) return;
   $('shopTitle').textContent = $('loginTitle').textContent = S.settings.name || 'โคขุน';
-  $('meName').innerHTML = `${esc(ME.name)} <span class="role">${isAdmin() ? 'แอดมิน' : 'พนักงาน'}</span>`;
-  document.querySelectorAll('[data-admin]').forEach(el => el.classList.toggle('hidden', !isAdmin()));
+  $('meName').innerHTML = `${esc(ME.name)} <span class="role">${isOwner() ? 'เจ้าของร้าน' : 'พนักงาน'}</span>`;
+  document.querySelectorAll('[data-perm]').forEach(el => el.classList.toggle('hidden', !canAny(el.dataset.perm)));
   $('catList').innerHTML = cats().map(c => `<option value="${esc(c)}">`).join('');
   renderTables(); renderMenu();
-  if (isAdmin()) renderSettings();
+  if (can('settings')) renderSettings();
 }
 
 function renderTables() {
@@ -40,7 +40,7 @@ function renderMenu() {
   $('menuBody').innerHTML = S.menu.filter(m => !q || (m.name + m.cat).toLowerCase().includes(q)).map(m => `<tr>
     <td>${esc(m.name)}</td><td class="muted">${esc(m.cat)}</td><td class="num">${baht(m.price)}</td>
     <td><button class="btn sm ${m.out ? 'danger' : 'ghost'}" data-out="${m.id}">${m.out ? 'หมด' : 'มีขาย'}</button></td>
-    <td class="num">${isAdmin() ? `<button class="btn ghost sm" data-edit="${m.id}">แก้ไข</button> <button class="btn ghost sm" data-del="${m.id}">ลบ</button>` : ''}</td></tr>`).join('')
+    <td class="num">${can('menu') ? `<button class="btn ghost sm" data-edit="${m.id}">แก้ไข</button> <button class="btn ghost sm" data-del="${m.id}">ลบ</button>` : ''}</td></tr>`).join('')
     || '<tr><td colspan="5" class="muted">ไม่พบเมนู</td></tr>';
   $('menuBody').querySelectorAll('[data-out]').forEach(b => b.onclick = () => act('menu_out', { id: Number(b.dataset.out) }));
   $('menuBody').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {

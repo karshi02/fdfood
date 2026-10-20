@@ -26,9 +26,9 @@
   <nav>
     <button data-tab="tables" class="on">โต๊ะ</button>
     <button data-tab="menu">เมนูอาหาร</button>
-    <button data-tab="dash" data-admin>แดชบอร์ด</button>
-    <button data-tab="report" data-admin>ยอดขาย</button>
-    <button data-tab="settings" data-admin>ตั้งค่า</button>
+    <button data-tab="dash" data-perm="report">แดชบอร์ด</button>
+    <button data-tab="report" data-perm="report">ยอดขาย</button>
+    <button data-tab="settings" data-perm="settings users">ตั้งค่า</button>
   </nav>
   <div class="who" style="margin-left:auto">
     <span id="sync"></span>
@@ -45,7 +45,7 @@
   </section>
 
   <section id="tab-menu" class="hidden">
-    <div class="card" data-admin>
+    <div class="card" data-perm="menu">
       <h2 id="menuFormTitle">เพิ่มเมนู</h2>
       <form id="menuForm" class="row">
         <input type="hidden" id="mId">
@@ -60,7 +60,7 @@
     </div>
     <div class="card">
       <div class="sheet-head"><h2 style="margin:0">รายการเมนู <span class="muted" id="menuCount"></span></h2>
-        <div class="actions" style="margin:0" data-admin>
+        <div class="actions" style="margin:0" data-perm="menu">
           <button class="btn ghost sm" id="bulkBtn">+ เพิ่มหลายรายการ</button>
         </div></div>
       <div id="bulkBox" class="hidden" style="margin-bottom:12px">
@@ -140,23 +140,27 @@
   </section>
 
   <section id="tab-settings" class="hidden">
-    <div class="card">
-      <h2>พนักงาน / ผู้ใช้</h2>
-      <p class="muted">เจ้าของร้าน/แอดมิน: ทำได้ทุกอย่าง · พนักงาน: จองโต๊ะ, เปิดโต๊ะ, สั่งอาหาร, ส่งครัว, รับเงิน, ตั้งเมนูหมด — แก้เมนู/ราคา, ให้ส่วนลด, ลดรายการที่ส่งครัวแล้ว, ดูยอดขาย, ยกเลิกบิล, ตั้งค่า ไม่ได้</p>
-      <form id="userForm" class="row">
+    <div class="card" data-perm="users">
+      <h2 id="uTitle">เพิ่มผู้ใช้</h2>
+      <form id="userForm">
         <input type="hidden" id="uId">
-        <div><label>ชื่อผู้ใช้ (ใช้ล็อกอิน)</label><input id="uUser" autocomplete="off" required></div>
-        <div><label>ชื่อที่แสดง</label><input id="uName" required></div>
-        <div><label>สิทธิ์</label><select id="uRole"><option value="staff">พนักงาน</option><option value="admin">เจ้าของร้าน/แอดมิน</option></select></div>
-        <div><label id="uPassLabel">รหัสผ่าน</label><input id="uPass" type="password" autocomplete="new-password"></div>
-        <div style="flex:0 0 auto" class="row">
+        <div class="row">
+          <div><label>ชื่อผู้ใช้ (ใช้ล็อกอิน)</label><input id="uUser" autocomplete="off" required></div>
+          <div><label>ชื่อที่แสดง</label><input id="uName" required></div>
+          <div><label id="uPassLabel">รหัสผ่าน</label><input id="uPass" type="password" autocomplete="new-password"></div>
+        </div>
+        <label style="margin-top:14px">สิทธิ์ — เลือกแบบสำเร็จรูป หรือติ๊กเองทีละข้อ</label>
+        <div class="cats" id="uPresets"></div>
+        <p class="muted" style="margin:0 0 8px">ทุกคนทำได้เสมอ: จองโต๊ะ, เปิดโต๊ะ, สั่งอาหาร, ส่งครัว, รับเงิน, ตั้งเมนูหมด</p>
+        <div class="perm-grid" id="uPerms"></div>
+        <div class="actions">
           <button class="btn brand" type="submit">บันทึก</button>
           <button class="btn ghost" type="button" id="uCancel">ล้าง</button>
         </div>
       </form>
       <div class="scroll-x"><table class="list" style="margin-top:10px"><tbody id="userBody"></tbody></table></div>
     </div>
-    <div class="card">
+    <div class="card" data-perm="settings">
       <h2>ข้อมูลร้าน (แสดงบนบิล)</h2>
       <div class="row">
         <div><label>ชื่อร้าน</label><input id="sName"></div>
@@ -173,7 +177,7 @@
       </div>
       <div class="actions"><button class="btn brand" id="sSave">บันทึก</button></div>
     </div>
-    <div class="card">
+    <div class="card" data-perm="settings">
       <h2>จัดการโต๊ะ</h2>
       <div class="row">
         <div><label>ชื่อโต๊ะใหม่</label><input id="tName" placeholder="เช่น 26, VIP1"></div>

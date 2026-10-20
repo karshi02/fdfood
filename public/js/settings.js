@@ -21,27 +21,66 @@ $('tAdd').onclick = async () => {
   if (await act('table_add', { name })) $('tName').value = '';
 };
 
-let users = [];
+let users = [], uRole = 'staff';
+// one-click starting points; the owner can still tick or untick single permissions afterwards
+const PRESETS = [
+  { key: 'owner', label: 'เจ้าของร้าน', role: 'admin', perms: null },
+  { key: 'manager', label: 'แอดมิน', role: 'staff', perms: ['menu', 'discount', 'reduce', 'report', 'void'] },
+  { key: 'staff', label: 'พนักงาน', role: 'staff', perms: [] },
+];
+const permNames = u => u.role === 'admin' ? 'ทุกสิทธิ์' : u.perms.map(p => S.permList[p]).join(', ') || 'สิทธิ์พื้นฐาน';
+
+function renderPermForm(role, perms) {
+  uRole = role;
+  const all = Object.keys(S.permList);
+  // only the owner can make owners; anyone else can only hand out what they have
+  $('uPresets').innerHTML = PRESETS.filter(x => x.role !== 'admin' || isOwner()).map(x => {
+    const on = x.role === role && (x.perms === null || (x.perms.length === perms.length && x.perms.every(p => perms.includes(p))));
+    return `<button type="button" class="chip ${on ? 'on' : ''}" data-preset="${x.key}">${x.label}</button>`;
+  }).join('');
+  $('uPerms').innerHTML = all.map(p => {
+    const owner = role === 'admin', mine = can(p);
+    return `<label class="perm ${owner || !mine ? 'off' : ''}"><input type="checkbox" value="${p}" ${owner || perms.includes(p) ? 'checked' : ''} ${owner || !mine ? 'disabled' : ''}>
+      <span>${esc(S.permList[p])}</span></label>`;
+  }).join('') + (role === 'admin' ? '<p class="muted" style="grid-column:1/-1;margin:0">เจ้าของร้านได้ทุกสิทธิ์เสมอ</p>' : '');
+  $('uPresets').querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
+    const x = PRESETS.find(y => y.key === b.dataset.preset);
+    renderPermForm(x.role, x.perms || all);
+  });
+  $('uPerms').querySelectorAll('input').forEach(c => c.onchange = () => renderPermForm('staff', checkedPerms()));
+}
+const checkedPerms = () => [...$('uPerms').querySelectorAll('input:checked')].map(c => c.value);
+
 async function loadUsers() {
   const d = await act('users'); if (!d) return;
   users = d.users;
+  if (!$('uId').value) renderPermForm(uRole, uRole === 'admin' ? [] : checkedPerms());
   $('userBody').innerHTML = users.map(u => `<tr><td>${esc(u.name)} <span class="muted">@${esc(u.username)}</span></td>
-    <td>${u.role === 'admin' ? 'เจ้าของร้าน/แอดมิน' : 'พนักงาน'}</td>
-    <td class="num"><button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>
-    ${u.id !== ME.id ? `<button class="btn ghost sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
+    <td><span class="role">${u.role === 'admin' ? 'เจ้าของร้าน' : 'พนักงาน'}</span><div class="muted">${esc(permNames(u))}</div></td>
+    <td class="num" style="white-space:nowrap">${u.role !== 'admin' || isOwner() ? `<button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>` : ''}
+    ${u.id !== ME.id && (u.role !== 'admin' || isOwner()) ? `<button class="btn ghost sm" data-udel="${u.id}">ลบ</button>` : ''}</td></tr>`).join('');
   $('userBody').querySelectorAll('[data-uedit]').forEach(b => b.onclick = () => {
     const u = users.find(x => x.id == b.dataset.uedit);
-    $('uId').value = u.id; $('uUser').value = u.username; $('uName').value = u.name; $('uRole').value = u.role; $('uPass').value = '';
+    $('uId').value = u.id; $('uUser').value = u.username; $('uName').value = u.name; $('uPass').value = '';
     $('uPassLabel').textContent = 'รหัสผ่านใหม่ (เว้นว่าง = ไม่เปลี่ยน)';
+    $('uTitle').textContent = `แก้ไขผู้ใช้ — ${u.name}`;
+    renderPermForm(u.role, u.perms);
+    $('userForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
   $('userBody').querySelectorAll('[data-udel]').forEach(b => b.onclick = async () => {
     if (confirm('ลบผู้ใช้นี้?') && await act('user_del', { id: Number(b.dataset.udel) })) { loadUsers(); toast('ลบผู้ใช้แล้ว'); }
   });
 }
-function resetUserForm() { $('userForm').reset(); $('uId').value = ''; $('uPassLabel').textContent = 'รหัสผ่าน'; }
+function resetUserForm() {
+  $('userForm').reset(); $('uId').value = ''; $('uPassLabel').textContent = 'รหัสผ่าน'; $('uTitle').textContent = 'เพิ่มผู้ใช้';
+  renderPermForm('staff', []);
+}
 $('userForm').onsubmit = async e => {
   e.preventDefault();
-  if (await act('user_save', { id: Number($('uId').value) || null, username: $('uUser').value, name: $('uName').value, role: $('uRole').value, password: $('uPass').value })) {
+  const edit = $('uId').value;
+  if (await act('user_save', { id: Number(edit) || null, username: $('uUser').value, name: $('uName').value, role: uRole,
+    perms: uRole === 'admin' ? [] : checkedPerms(), password: $('uPass').value })) {
+    toast(edit ? 'บันทึกสิทธิ์แล้ว' : `เพิ่มผู้ใช้ ${$('uName').value} แล้ว`);
     resetUserForm(); loadUsers();
   }
 };

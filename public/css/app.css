@@ -171,3 +171,10 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
 #sync { display: inline-flex; align-items: center; gap: 5px; }
 #sync.ok { color: var(--free); } #sync.off { color: var(--danger); }
 .role { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 99px; background: var(--brand-soft); color: var(--brand-ink); }
+
+/* user permissions */
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.perm { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); font-size: 14px; cursor: pointer; }
+.perm:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.perm input { width: 18px; height: 18px; margin: 0; accent-color: var(--brand); flex: none; }
+.perm.off { cursor: default; opacity: .7; }
