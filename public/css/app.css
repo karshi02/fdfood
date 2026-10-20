@@ -199,3 +199,9 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
   .mrow .stock { justify-self: start; }
   .mrow .mact { justify-self: end; }
 }
+
+/* dish added by staff, price waiting for approval */
+.tag.wait { background: #fff7ed; color: var(--resv); }
+.tbl.wait { border-color: #fcd9a8; } .tbl.wait .st { color: var(--resv); }
+.mrow.wait { background: #fff7ed; border-radius: 8px; }
+.navbadge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 99px; background: var(--resv); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }

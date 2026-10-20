@@ -41,6 +41,7 @@ function renderModal() {
   const c = calc(t.order, t.discount);
   const pendingQty = t.order.reduce((a, i) => a + Math.max(0, i.qty - i.sent), 0);
   const has = t.order.length > 0;
+  const ids = waitIds(), wait = hasWait(t, ids), billable = has && !wait;
   b.innerHTML = `<div class="split">
     <div class="card">
       <div class="sheet-head" style="margin-bottom:8px"><h2 style="margin:0">เมนู (กดเพื่อสั่ง)</h2>
@@ -60,7 +61,8 @@ function renderModal() {
     <div class="card order" id="orderCard">
       <h2>รายการที่สั่ง ${t.resv && t.resv.name ? `<span class="muted">· ${esc(t.resv.name)}</span>` : ''}</h2>
       <table class="list"><tbody>${t.order.map(i => `<tr>
-        <td>${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}
+        <td>${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}${ids.has(i.menuId)
+          ? `<span class="tag wait">รออนุมัติราคา</span>${can('menu') ? ` <button class="note" data-ok="${i.menuId}">อนุมัติ</button>` : ''}` : ''}
           <div class="muted">฿${baht(i.price)} · <button class="note" data-note="${i.id}">${i.note ? esc(i.note) : '+ หมายเหตุ'}</button></div></td>
         <td><span class="qty"><button data-q="${i.id}" data-d="-1">−</button>${i.qty}<button data-q="${i.id}" data-d="1">+</button></span></td>
         <td class="num">${baht(i.price * i.qty)}</td></tr>`).join('') || '<tr><td class="muted">ยังไม่มีรายการ</td></tr>'}</tbody></table>
@@ -85,9 +87,10 @@ function renderModal() {
         ${has ? '' : '<button class="btn danger" id="cancelOpen">ยกเลิกเปิดโต๊ะ</button>'}
         ${has && can('void') ? '<button class="btn danger" id="voidTable">ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</button>' : ''}
       </div>` : ''}
+      ${wait ? `<p class="muted" style="margin:0 0 10px;color:var(--resv)">มีเมนูใหม่รออนุมัติราคา — ${can('menu') ? 'กด "อนุมัติ" ที่รายการ' : 'ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ'} ก่อนเช็คบิล/ชำระเงิน</p>` : ''}
       <div class="actions paybar">
-        <button class="btn brand lg" id="pay" ${has ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
-        <button class="btn ghost" style="flex:1" id="preview" ${has ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
+        <button class="btn brand lg" id="pay" ${billable ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
+        <button class="btn ghost" style="flex:1" id="preview" ${billable ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
       </div>
     </div></div>
     <button class="btn brand jump" id="jump"><span>ดูรายการ / ชำระเงิน (${t.order.reduce((a, i) => a + i.qty, 0)})</span><span>฿${baht(c.total)}</span></button>`;
@@ -105,6 +108,7 @@ function renderModal() {
     if (d < 0 && i.qty <= i.sent && !confirm(`"${i.name}" ส่งครัวไปแล้ว ยืนยันลด?`)) return;
     act('item_qty', { item: i.id, delta: d });
   });
+  b.querySelectorAll('[data-ok]').forEach(x => x.onclick = () => approveDish(Number(x.dataset.ok)));
   b.querySelectorAll('[data-note]').forEach(x => x.onclick = () => {
     const i = t.order.find(o => o.id == x.dataset.note);
     const n = prompt('หมายเหตุ (เช่น ไม่เผ็ด, ไม่ใส่ผัก)', i.note);
@@ -118,7 +122,7 @@ function renderModal() {
       const body = { name, price: Number($('qaPrice').value), cat: $('qaCat').value.trim() };
       if (S.menu.some(m => m.name === name)) return alert(`มีเมนู "${name}" อยู่แล้ว — กดสั่งจากรายการเมนู`);
       act(order ? 'menu_add_order' : 'menu_save', order ? { table: t.id, ...body } : body)
-        .then(d => d && toast(order ? `สั่ง "${name}" ฿${baht(body.price)} แล้ว` : `เพิ่มเมนู "${name}" แล้ว`));
+        .then(d => d && toast((order ? `สั่ง "${name}" ฿${baht(body.price)} แล้ว` : `เพิ่มเมนู "${name}" แล้ว`) + (can('menu') ? '' : ' · รออนุมัติราคา')));
     };
     $('qaOrder').onclick = () => qaSave(true);
     $('qaOnly').onclick = () => qaSave(false);

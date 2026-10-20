@@ -27,7 +27,9 @@ CREATE TABLE menu (
   price DECIMAL(10,2) NOT NULL,
   cat VARCHAR(100) NOT NULL DEFAULT '',
   out_of_stock TINYINT(1) NOT NULL DEFAULT 0,
-  active TINYINT(1) NOT NULL DEFAULT 1
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  pending TINYINT(1) NOT NULL DEFAULT 0, -- added by someone without the "menu" permission: price not approved yet
+  created_by INT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE dining_tables (

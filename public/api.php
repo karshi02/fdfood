@@ -39,8 +39,13 @@ function tx(callable $f): mixed {
 }
 
 // upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
-const SCHEMA = 5;
+const SCHEMA = 6;
 if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
+    // dishes added by someone without the "menu" permission wait for price approval
+    if (!q("SHOW COLUMNS FROM menu LIKE 'pending'")->fetch()) {
+        try { q('ALTER TABLE menu ADD COLUMN pending TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN created_by INT NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
     if (!q("SHOW COLUMNS FROM users LIKE 'perms'")->fetch()) {
         try { q("ALTER TABLE users ADD COLUMN perms VARCHAR(200) NOT NULL DEFAULT ''"); }
         catch (PDOException) {} // another request added it first
@@ -144,8 +149,9 @@ function state(): array {
             'order' => $byTable[$t['id']] ?? []];
     }
     $menu = [];
-    foreach (q('SELECT * FROM menu WHERE active = 1 ORDER BY id') as $m) {
-        $menu[] = ['id' => (int)$m['id'], 'name' => $m['name'], 'price' => (float)$m['price'], 'cat' => $m['cat'], 'out' => (bool)$m['out_of_stock']];
+    foreach (q('SELECT m.*, u.name AS by_name FROM menu m LEFT JOIN users u ON u.id = m.created_by WHERE m.active = 1 ORDER BY m.id') as $m) {
+        $menu[] = ['id' => (int)$m['id'], 'name' => $m['name'], 'price' => (float)$m['price'], 'cat' => $m['cat'], 'out' => (bool)$m['out_of_stock'],
+            'pending' => (bool)$m['pending'], 'by' => $m['pending'] ? (string)$m['by_name'] : ''];
     }
     return ['ver' => ver(), 'me' => $me, 'permList' => PERMS, 'settings' => settings(), 'menu' => $menu, 'tables' => $tables];
 }
@@ -172,7 +178,17 @@ function lock_item(int $id): array {
     if ((int)$i['table_id'] !== (int)$tid) fail($gone);
     return $i;
 }
-const CLEAR_TABLE = "status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
+// a table with a dish whose price nobody has approved yet can't be billed
+function no_pending(int $tableId): void {
+    $n = q('SELECT DISTINCT m.name FROM order_items i JOIN menu m ON m.id = i.menu_id WHERE i.table_id = ? AND m.pending = 1', [$tableId])->fetchAll(PDO::FETCH_COLUMN);
+    if ($n) fail('รออนุมัติราคา: ' . implode(', ', $n) . ' — ให้คนที่มีสิทธิ์ "แก้เมนู" อนุมัติในแท็บเมนูก่อน');
+}
+// approving fixes the price on the menu and on every open order that already has the dish
+function approve_menu(int $id, float $price): void {
+    q('UPDATE menu SET price = ?, pending = 0 WHERE id = ?', [$price, $id]);
+    q('UPDATE order_items SET price = ? WHERE menu_id = ?', [$price, $id]);
+}
+const CLEAR_TABLE ="status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
 // in production only nginx can reach the app (it listens on 127.0.0.1), so trust its X-Real-IP when the peer is a private address
 function client_ip(): string {
     $peer = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -359,6 +375,7 @@ try {
             if ($t['status'] !== 'busy') fail('โต๊ะไม่มีลูกค้า');
             $items = q('SELECT price, qty FROM order_items WHERE table_id = ?', [$t['id']])->fetchAll();
             if (!$items) fail('ไม่มีรายการ');
+            no_pending((int)$t['id']);
             $c = calc($items, $t['disc_type'], $t['disc_value'], settings());
             q('UPDATE dining_tables SET checked_at = ?, checked_total = ? WHERE id = ?', [now(), $c['total'], $t['id']]);
         });
@@ -369,6 +386,7 @@ try {
             $t = lock_table((int)($in['table'] ?? 0));
             $items = q('SELECT * FROM order_items WHERE table_id = ? ORDER BY id', [$t['id']])->fetchAll();
             if (!$items) fail('ไม่มีรายการ');
+            no_pending((int)$t['id']);
             $method = in_array($in['method'] ?? '', ['cash', 'qr', 'transfer', 'card'], true) ? $in['method'] : fail('วิธีชำระไม่ถูกต้อง');
             $s = settings();
             $c = calc($items, $t['disc_type'], $t['disc_value'], $s);
@@ -423,15 +441,20 @@ try {
         break;
     case 'menu_save':
         need(empty($in['id']) ? '' : 'menu');
-        tx(function () use ($in) {
+        tx(function () use ($in, $me) {
             $name = str($in, 'name');
             $price = money($in['price'] ?? null);
             if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
             $id = (int)($in['id'] ?? 0);
-            if ($id && !q('SELECT id FROM menu WHERE id = ? AND active = 1 FOR UPDATE', [$id])->fetch()) fail('เมนูนี้ถูกลบไปแล้ว (อาจลบจากเครื่องอื่น)');
+            $old = $id ? (q('SELECT * FROM menu WHERE id = ? AND active = 1 FOR UPDATE', [$id])->fetch() ?: fail('เมนูนี้ถูกลบไปแล้ว (อาจลบจากเครื่องอื่น)')) : null;
             if (q('SELECT id FROM menu WHERE name = ? AND active = 1 AND id <> ?', [$name, $id])->fetch()) fail('มีเมนูชื่อนี้อยู่แล้ว');
-            if (!empty($in['id'])) q('UPDATE menu SET name = ?, price = ?, cat = ? WHERE id = ?', [$name, $price, str($in, 'cat', 100), (int)$in['id']]);
-            else q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($in, 'cat', 100)]);
+            if ($old) {
+                q('UPDATE menu SET name = ?, price = ?, cat = ? WHERE id = ?', [$name, $price, str($in, 'cat', 100), $id]);
+                // saving a pending dish (only "menu" can edit) is an approval at the saved price
+                if ($old['pending']) { approve_menu($id, $price); q('UPDATE order_items SET name = ? WHERE menu_id = ?', [$name, $id]); }
+            } else {
+                q('INSERT INTO menu (name, price, cat, pending, created_by) VALUES (?, ?, ?, ?, ?)', [$name, $price, str($in, 'cat', 100), can('menu') ? 0 : 1, $me['id']]);
+            }
             global $pdo;
             return (int)($in['id'] ?? 0) ?: (int)$pdo->lastInsertId();
         });
@@ -447,8 +470,31 @@ try {
             $price = money($in['price'] ?? null);
             if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');
             if (q('SELECT id FROM menu WHERE name = ? AND active = 1', [$name])->fetch()) fail('มีเมนูชื่อนี้อยู่แล้ว — กดสั่งจากรายการเมนู');
-            q('INSERT INTO menu (name, price, cat) VALUES (?, ?, ?)', [$name, $price, str($in, 'cat', 100)]);
+            // the kitchen can start right away; the bill waits until someone with "menu" approves the price
+            q('INSERT INTO menu (name, price, cat, pending, created_by) VALUES (?, ?, ?, ?, ?)', [$name, $price, str($in, 'cat', 100), can('menu') ? 0 : 1, $me['id']]);
             q('INSERT INTO order_items (table_id, menu_id, name, price, qty, created_by) VALUES (?, ?, ?, ?, 1, ?)', [$t['id'], (int)$pdo->lastInsertId(), $name, $price, $me['id']]);
+        });
+        break;
+    case 'menu_approve':
+        need('menu');
+        tx(function () use ($in) {
+            $id = (int)($in['id'] ?? 0);
+            $m = q('SELECT * FROM menu WHERE id = ? AND active = 1 FOR UPDATE', [$id])->fetch() ?: fail('ไม่พบเมนู (อาจถูกลบจากเครื่องอื่น)');
+            if (!$m['pending']) fail('เมนูนี้อนุมัติไปแล้ว');
+            approve_menu($id, money($in['price'] ?? $m['price']) ?? fail('ราคาไม่ถูกต้อง'));
+        });
+        break;
+    case 'menu_reject':
+        // not approved: the dish leaves the menu and every open order (nothing pending was ever billed)
+        need('menu');
+        $extra['removed'] = tx(function () use ($in) {
+            $id = (int)($in['id'] ?? 0);
+            $m = q('SELECT * FROM menu WHERE id = ? AND active = 1 FOR UPDATE', [$id])->fetch() ?: fail('ไม่พบเมนู (อาจถูกลบจากเครื่องอื่น)');
+            if (!$m['pending']) fail('เมนูนี้อนุมัติไปแล้ว — ใช้ปุ่มลบแทน');
+            foreach (q('SELECT DISTINCT table_id FROM order_items WHERE menu_id = ? ORDER BY table_id', [$id])->fetchAll(PDO::FETCH_COLUMN) as $tid) lock_table((int)$tid);
+            $n = q('DELETE FROM order_items WHERE menu_id = ?', [$id])->rowCount();
+            q('UPDATE menu SET active = 0 WHERE id = ?', [$id]);
+            return $n;
         });
         break;
     case 'menu_bulk':
@@ -471,11 +517,16 @@ try {
         // owner wipes the whole menu (e.g. replacing the sample menu); soft delete, so old bills and open orders are untouched
         need('menu');
         if ($me['role'] !== 'admin') fail('เฉพาะเจ้าของร้านเท่านั้น', 403);
-        $extra['cleared'] = tx(fn() => q('UPDATE menu SET active = 0 WHERE active = 1')->rowCount());
+        // dishes waiting for approval stay: they sit on open orders and must be approved or rejected
+        $extra['cleared'] = tx(fn() => q('UPDATE menu SET active = 0 WHERE active = 1 AND pending = 0')->rowCount());
         break;
     case 'menu_del':
         need('menu');
-        tx(fn() => q('UPDATE menu SET active = 0 WHERE id = ?', [(int)($in['id'] ?? 0)]));
+        tx(function () use ($in) {
+            $id = (int)($in['id'] ?? 0);
+            if (q('SELECT 1 FROM menu WHERE id = ? AND active = 1 AND pending = 1', [$id])->fetch()) fail('เมนูนี้รออนุมัติ — กด "อนุมัติ" หรือ "ไม่อนุมัติ"');
+            q('UPDATE menu SET active = 0 WHERE id = ?', [$id]);
+        });
         break;
     case 'settings_save':
         need('settings');
