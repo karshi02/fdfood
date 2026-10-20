@@ -113,7 +113,8 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
 .btn.lg { flex: 1 1 100%; padding: 14px 18px; font-size: 17px; font-weight: 600; }
 .qty button { width: 36px; height: 36px; }
 .jump { display: none; }
-@media (min-width: 761px) {
+/* pay + check-bill stay pinned to the bottom while the order card scrolls */
+.paybar { position: sticky; bottom: 0; z-index: 2; background: var(--card); margin: 10px -16px -16px; padding: 12px 16px 16px; border-top: 1px solid var(--line); box-shadow: 0 -8px 20px rgba(15,23,42,.08); }@media (min-width: 761px) {
   .split > .order { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
 }
 @media (max-width: 760px) {
@@ -141,6 +142,8 @@ tr.void td { color: var(--muted); text-decoration: line-through; }
   .cats.scroll::-webkit-scrollbar { display: none; }
   .chip { flex: 0 0 auto; padding: 8px 14px; }
   .jump { display: flex; justify-content: space-between; position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 11; box-shadow: 0 8px 24px rgba(15,23,42,.25); }
+  .jump.off { display: none; }
+  .paybar { margin: 10px -14px -14px; padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); }
   #toast { bottom: 80px; }
 }
 

@@ -81,15 +81,21 @@ function renderModal() {
         <div><label>เงินทอน</label><input id="change" readonly></div></div>
         <div class="actions" style="margin-top:6px">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}">${n}</button>`).join('')}<button class="chip" data-cash="${c.total}">พอดี</button></div>` : ''}
       ${payMethod === 'qr' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">ให้แอดมินตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" ก่อน</p>') : ''}
-      <div class="actions">
-        <button class="btn brand lg" id="pay" ${has ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
-        <button class="btn ghost" style="flex:1" id="preview" ${has ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
+      ${!has || can('void') ? `<div class="actions">
         ${has ? '' : '<button class="btn danger" id="cancelOpen">ยกเลิกเปิดโต๊ะ</button>'}
         ${has && can('void') ? '<button class="btn danger" id="voidTable">ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</button>' : ''}
+      </div>` : ''}
+      <div class="actions paybar">
+        <button class="btn brand lg" id="pay" ${has ? '' : 'disabled'}>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</button>
+        <button class="btn ghost" style="flex:1" id="preview" ${has ? '' : 'disabled'}>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</button>
       </div>
     </div></div>
     <button class="btn brand jump" id="jump"><span>ดูรายการ / ชำระเงิน (${t.order.reduce((a, i) => a + i.qty, 0)})</span><span>฿${baht(c.total)}</span></button>`;
   $('jump').onclick = () => $('orderCard').scrollIntoView({ behavior: 'smooth' });
+  // phone: hide the floating "view order" bar once the order card (with its own floating pay bar) is on screen
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => $('jump') && $('jump').classList.toggle('off', e.isIntersecting), { threshold: 0.15 }).observe($('orderCard'));
+  }
 
   b.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => { curCat = x.dataset.cat; renderModal(); });
   b.querySelectorAll('[data-m]').forEach(x => x.onclick = () => { payMethod = x.dataset.m; renderModal(); });
