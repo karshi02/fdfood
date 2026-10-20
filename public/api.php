@@ -180,6 +180,10 @@ function bill_out(array $b): array {
 function lock_table(int $id): array {
     return q('SELECT * FROM dining_tables WHERE id = ? FOR UPDATE', [$id])->fetch() ?: fail('ไม่พบโต๊ะ');
 }
+// a table only counts as open once a dish goes on it: the first dish opens a free or booked table
+function open_on_first_dish(array $t): void {
+    if ($t['status'] !== 'busy') q("UPDATE dining_tables SET status = 'busy', opened_at = ? WHERE id = ?", [now(), $t['id']]);
+}
 // lock the table first, then the item: same order as pay/kitchen, so no deadlock
 function lock_item(int $id): array {
     $gone = 'ไม่พบรายการ (อาจถูกแก้จากเครื่องอื่น)';
@@ -340,7 +344,7 @@ try {
         need();
         tx(function () use ($in, $me) {
             $t = lock_table((int)($in['table'] ?? 0));
-            if ($t['status'] !== 'busy') fail('ยังไม่ได้เปิดโต๊ะ');
+            open_on_first_dish($t);
             $m = q('SELECT * FROM menu WHERE id = ? AND active = 1', [(int)($in['menu'] ?? 0)])->fetch() ?: fail('ไม่พบเมนู');
             if ($m['out_of_stock']) fail('เมนูนี้หมด');
             $ex = q("SELECT id FROM order_items WHERE table_id = ? AND menu_id = ? AND price = ? AND note = ''", [$t['id'], $m['id'], $m['price']])->fetchColumn();
@@ -486,7 +490,7 @@ try {
         tx(function () use ($in, $me) {
             global $pdo;
             $t = lock_table((int)($in['table'] ?? 0));
-            if ($t['status'] !== 'busy') fail('ยังไม่ได้เปิดโต๊ะ');
+            open_on_first_dish($t);
             $name = str($in, 'name');
             $price = money($in['price'] ?? null);
             if ($name === '' || $price === null) fail('ใส่ชื่อและราคาให้ถูกต้อง');

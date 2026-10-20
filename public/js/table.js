@@ -2,11 +2,18 @@
 // cashIn survives re-renders, so another device's change doesn't wipe the amount the cashier typed
 // resvTime likewise keeps a picked booking time across the 3-second sync re-render
 // curQ keeps the menu search across the re-render that follows each tap on a dish
-let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', resvTime = '';
+// draft: the order sheet is showing for a table that isn't open yet; the first dish opens it on the server
+let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', resvTime = '', draft = false;
 // datetime-local wants local time; toISOString() alone is UTC, 7 hours behind in Bangkok
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-function openTable(id) { cur = id; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; $('modal').classList.remove('hidden'); renderModal(); }
-function closeModal() { cur = null; $('modal').classList.add('hidden'); }
+function openTable(id, asDraft) { cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; resvTime = ''; $('modal').classList.remove('hidden'); renderModal(); }
+function closeModal() {
+  // leaving an open table with nothing ordered frees it again; quiet, since another device may have just added a dish
+  const t = S.tables.find(x => x.id === cur);
+  if (t && t.status === 'busy' && !t.order.length) fetch('api.php?a=cancel_open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: t.id }) })
+    .then(r => r.json()).then(d => d.tables && apply(d)).catch(() => {});
+  cur = null; draft = false; $('modal').classList.add('hidden');
+}
 $('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) closeModal(); });
 
@@ -24,7 +31,7 @@ function renderModal() {
   if ($('move')) $('move').onclick = () => moveTable(t);
   const b = $('mdBody');
 
-  if (t.status !== 'busy') {
+  if (t.status !== 'busy' && !draft) {
     const r = t.resv || { time: '', pax: 2 };
     b.innerHTML = `<div class="card">
       <h2>${t.status === 'resv' ? 'ข้อมูลการจอง' : 'จองโต๊ะ'}</h2>
@@ -42,7 +49,7 @@ function renderModal() {
       if (await act('resv_save', { table: t.id, time: $('rTime').value.replace('T', ' '), pax: Number($('rPax').value) })) closeModal();
     };
     if ($('rCancel')) $('rCancel').onclick = async () => { if (confirm('ยกเลิกการจอง?') && await act('resv_cancel', { table: t.id })) { closeModal(); toast(`ยกเลิกการจองโต๊ะ ${t.name} แล้ว`); } };
-    $('open').onclick = () => act('open', { table: t.id });
+    $('open').onclick = () => { draft = true; renderModal(); };
     return;
   }
 
@@ -122,7 +129,7 @@ function renderModal() {
               <div><label>เงินทอน</label><input id="change" readonly placeholder="0.00"></div></div>
             <div class="cashq">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}" type="button">${n.toLocaleString('th-TH')}</button>`).join('')}<button class="chip exact" data-cash="${c.total}" type="button">พอดี</button></div>` : ''}
           ${payMethod === 'transfer' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">โอนเข้าบัญชีร้าน · ตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" เพื่อให้ขึ้น QR ให้ลูกค้าสแกน</p>') : ''}
-          ${has ? '' : `<button class="voidrow" id="cancelOpen" type="button">${icon('close')}<span>ยกเลิกเปิดโต๊ะ</span>${icon('next')}</button>`}
+          ${has || t.status !== 'busy' ? '' : `<button class="voidrow" id="cancelOpen" type="button">${icon('close')}<span>ยกเลิกเปิดโต๊ะ</span>${icon('next')}</button>`}
           ${has && can('void') ? `<button class="voidrow" id="voidTable" type="button">${icon('receipt')}<span>ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</span>${icon('next')}</button>` : ''}
         </div>
       </section>

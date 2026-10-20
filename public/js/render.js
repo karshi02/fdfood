@@ -60,11 +60,8 @@ function renderTables() {
     el.onclick = () => openTable(id);
     el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTable(id); } };
     // "ใช้งาน"/"เปิดโต๊ะ" opens the table for ordering in one tap; other states just open it
-    el.querySelector('.tact').onclick = async e => {
-      e.stopPropagation();
-      if (e.currentTarget.dataset.act !== 'busy' && !(await act('open', { table: id }))) return;
-      openTable(id);
-    };
+    // straight to the menu; the table only opens when the first dish is added
+    el.querySelector('.tact').onclick = e => { e.stopPropagation(); openTable(id, e.currentTarget.dataset.act !== 'busy'); };
   });
 }
 
