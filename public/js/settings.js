@@ -56,10 +56,10 @@ const checkedPerms = () => [...$('uPerms').querySelectorAll('input:checked')].ma
 // online = a request in the last 120 s (screens poll every 3 s, the server records it at most once a minute)
 function onlineHtml(u) {
   const dot = c => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:4px"></span>`;
-  if (u.ago !== null && u.ago < 120) return `${dot('#22a35a')}ออนไลน์`;
-  if (u.seen === null) return `${dot('#9a9a9a')}ออฟไลน์`;
+  if (u.ago !== null && u.ago < 120) return `${dot('var(--ok)')}ออนไลน์`;
+  if (u.seen === null) return `${dot('var(--line-strong)')}ออฟไลน์`;
   const d = toDate(u.seen), today = dayKey(d) === dayKey(Date.now());
-  return `${dot('#9a9a9a')}ล่าสุด ${today ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' '}${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
+  return `${dot('var(--line-strong)')}ล่าสุด ${today ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' '}${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
 }
 // keep the online dots fresh while the staff list is on screen; quiet on errors (no alert from a background poll)
 setInterval(async () => {
