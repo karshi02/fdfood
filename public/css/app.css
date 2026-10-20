@@ -383,3 +383,7 @@ main > section > .row label, main > section > h2, main > section > p.muted { col
 .pr-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; background: transparent; }
 .pr-dot.on { background: var(--ok); }
 .pr-dot.wait { background: var(--warn); }
+
+/* report: sales by category */
+.cattrack { height: 5px; margin-top: 5px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.cattrack span { display: block; height: 100%; background: var(--brand); border-radius: 4px; }

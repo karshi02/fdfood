@@ -13,8 +13,11 @@ function dayData() {
     byMethod[b.method] = (byMethod[b.method] || 0) + b.total;
     b.items.forEach(i => { const x = items[i.name] || (items[i.name] = { name: i.name, qty: 0, amt: 0 }); x.qty += i.qty; x.amt += i.qty * i.price; });
   });
+  // bill items keep no category, so group by the dish's current one; deleted or renamed dishes fall under "ไม่มีหมวด"
+  const catOf = new Map(S.menu.map(m => [m.name, m.cat])), byCat = {};
+  Object.values(items).forEach(i => { const k = catOf.get(i.name) || '', x = byCat[k] || (byCat[k] = { cat: k, qty: 0, amt: 0 }); x.qty += i.qty; x.amt += i.amt; });
   return { bills: report.bills, ok, byMethod, total: ok.reduce((a, b) => a + b.total, 0), disc: ok.reduce((a, b) => a + b.disc, 0),
-    top: Object.values(items).sort((a, b) => b.qty - a.qty) };
+    top: Object.values(items).sort((a, b) => b.qty - a.qty), cats: Object.values(byCat).sort((a, b) => b.amt - a.amt) };
 }
 function renderReport() {
   const d = dayData();
@@ -36,6 +39,11 @@ function renderReport() {
     || '<tr><td colspan="7" class="muted">ไม่มีบิลวันนี้</td></tr>';
   $('topBody').innerHTML = d.top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${i.qty}</td><td class="num">${baht(i.amt)}</td></tr>`).join('')
     || '<tr><td colspan="3" class="muted">-</td></tr>';
+  const catSum = d.cats.reduce((a, c) => a + c.amt, 0) || 1, catMax = d.cats.length ? d.cats[0].amt || 1 : 1;
+  $('catBody').innerHTML = d.cats.map((c, n) => `<tr><td class="muted">${n + 1}</td>
+    <td>${esc(c.cat || 'ไม่มีหมวด')}<div class="cattrack"><span style="width:${c.amt / catMax * 100}%"></span></div></td>
+    <td class="num">${c.qty}</td><td class="num">${baht(c.amt)}</td><td class="num">${(c.amt / catSum * 100).toFixed(0)}%</td></tr>`).join('')
+    || '<tr><td colspan="5" class="muted">-</td></tr>';
   $('billBody').querySelectorAll('[data-print]').forEach(b => b.onclick = () => printBill(report.bills.find(x => x.no == b.dataset.print)));
   $('billBody').querySelectorAll('[data-redate]').forEach(x => x.onclick = () => redateBill(report.bills.find(b => b.no == x.dataset.redate)));
   // owner only (the server checks too): fix how a bill was paid, or reopen it to take payment again
