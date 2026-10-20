@@ -1,12 +1,24 @@
 /* ---------- print ---------- */
-function printKitchen(tableName, items) {
+// a Bluetooth printer paired on this device takes the job; otherwise (or if it fails) the browser print dialog
+async function viaBluetooth(job, what) {
+  if (!BT.active()) return false;
+  if (await job()) { toast(`พิมพ์${what}แล้ว`); return true; }
+  return !confirm(`พิมพ์${what}ผ่านบลูทูธไม่สำเร็จ
+${BT.state().msg}
+
+พิมพ์ผ่านเบราว์เซอร์แทน?`);
+}
+
+async function printKitchen(tableName, items) {
+  if (BT.useForKitchen() && await viaBluetooth(() => BT.printKitchen(tableName, items), 'ใบสั่งครัว')) return;
   $('receipt').className = 'kitchen';
   $('receipt').innerHTML = `<div class="c"><h3>โต๊ะ ${esc(tableName)}</h3><div>${new Date().toLocaleTimeString('th-TH')} · ${esc(ME.name)}</div></div><hr>
     <table>${items.map(i => `<tr><td><b>${i.qty} x ${esc(i.name)}</b>${i.note ? `<br>  * ${esc(i.note)}` : ''}</td></tr>`).join('')}</table><hr>`;
   window.print();
 }
 
-function printBill(b, isPreview) {
+async function printBill(b, isPreview) {
+  if (await viaBluetooth(() => BT.printBill(b, isPreview), isPreview ? 'ใบแจ้งยอด' : 'ใบเสร็จ')) return;
   const s = S.settings;
   $('receipt').className = '';
   $('receipt').innerHTML = `

@@ -369,3 +369,13 @@ main > section > .row label, main > section > h2, main > section > p.muted, .leg
   .scard .sico { width: 36px; height: 36px; border-width: 1.5px; } .scard .sico .ic { width: 18px; height: 18px; }
   .scard b { font-size: clamp(15px, 5vw, 24px); }
 }
+
+/* Bluetooth printer panel (js/btprint.js) */
+.pr-sheet { max-width: 520px; }
+.pr-status { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.pr-status::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.pr-status.on::before { background: var(--ok); }
+.pr-status.wait::before { background: var(--warn); }
+.pr-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; background: transparent; }
+.pr-dot.on { background: var(--ok); }
+.pr-dot.wait { background: var(--warn); }
