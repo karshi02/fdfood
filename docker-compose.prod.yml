@@ -1,0 +1,43 @@
+# Production: app only on localhost (host nginx proxies to it), no phpMyAdmin,
+# MySQL tuned for a small shared server.
+# Run: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:3020:80"
+    volumes:
+      - ./public:/var/www/html:ro
+    environment:
+      DB_HOST: db
+      DB_NAME: fdfood
+      DB_USER: fdfood
+      DB_PASS: ${DB_PASS}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    # MySQL 8.4 needs an x86-64-v2 CPU; the production box doesn't have one
+    image: mariadb:11.4
+    command: >
+      --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=64M --performance-schema=OFF --max-connections=50
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE: fdfood
+      MYSQL_USER: fdfood
+      MYSQL_PASSWORD: ${DB_PASS}
+      TZ: Asia/Bangkok
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  dbdata:
