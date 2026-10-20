@@ -29,25 +29,42 @@
 </div>
 
 <header>
-  <h1 id="shopTitle">โคขุน</h1>
-  <nav>
-    <button data-tab="tables" class="on">โต๊ะ</button>
-    <button data-tab="menu">เมนูอาหาร</button>
-    <button data-tab="dash" data-perm="report">แดชบอร์ด</button>
-    <button data-tab="report" data-perm="report">ยอดขาย</button>
-    <button data-tab="settings" data-perm="settings users">ตั้งค่า</button>
-  </nav>
-  <div class="who" style="margin-left:auto">
-    <span id="sync"></span>
-    <span id="meName"></span>
-    <button id="chPass">เปลี่ยนรหัส</button>
-    <button id="logout">ออกจากระบบ</button>
+  <div class="topbar">
+    <img class="logo" src="img/icon-192.png?v=2" alt="">
+    <div class="titles">
+      <h1 id="shopTitle">โคขุน</h1>
+      <span id="sync"></span>
+    </div>
+    <div class="who">
+      <div class="roundbtns">
+        <button class="round" id="bellBtn" type="button" title="เมนูรออนุมัติราคา" data-perm="menu"><i data-ic="bell"></i><span class="dot hidden" id="bellDot"></span></button>
+        <span class="sep"></span>
+        <button class="round" id="acctBtn" type="button" title="บัญชีผู้ใช้"><i data-ic="gear"></i></button>
+        <div class="acct hidden" id="acctMenu">
+          <div class="acct-name" id="meName"></div>
+          <button id="chPass" type="button">เปลี่ยนรหัสผ่าน</button>
+          <button id="logout" type="button" class="danger">ออกจากระบบ</button>
+        </div>
+      </div>
+      <span class="rolebadge" id="roleBadge"></span>
+    </div>
   </div>
+  <nav>
+    <button data-tab="tables" class="on"><i data-ic="table"></i><span>โต๊ะ</span></button>
+    <button data-tab="menu"><i data-ic="menu"></i><span>เมนูอาหาร</span><span class="navbadge hidden" id="menuBadge" title="รออนุมัติราคา"></span></button>
+    <button data-tab="dash" data-perm="report"><i data-ic="chart"></i><span>แดชบอร์ด</span></button>
+    <button data-tab="report" data-perm="report"><i data-ic="coins"></i><span>ยอดขาย</span></button>
+    <button data-tab="settings" data-perm="settings users"><i data-ic="gear"></i><span>ตั้งค่า</span></button>
+  </nav>
 </header>
 
 <main>
   <section id="tab-tables">
-    <div class="stats" id="liveStats"></div>
+    <div class="stats live" id="liveStats"></div>
+    <div class="tlegend">
+      <span><i class="free"></i>ว่าง</span><span><i class="busy"></i>กำลังทาน</span>
+      <span><i class="resv"></i>จองไว้</span><span><i class="checked"></i>รอชำระ</span>
+    </div>
     <div class="tables" id="tableGrid"></div>
   </section>
 
@@ -213,6 +230,7 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="receipt"></div>
 
+<script src="js/icons.js"></script>
 <script src="js/core.js"></script>
 <script src="js/render.js"></script>
 <script src="js/report.js"></script>

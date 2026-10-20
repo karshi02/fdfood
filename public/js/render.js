@@ -6,22 +6,30 @@ const hasWait = (t, ids = waitIds()) => t.order.some(i => ids.has(i.menuId));
 function render() {
   if (!ME) return;
   $('shopTitle').textContent = $('loginTitle').textContent = S.settings.name || 'โคขุน';
-  $('meName').innerHTML = `${esc(ME.name)} <span class="role">${isOwner() ? 'เจ้าของร้าน' : 'พนักงาน'}</span>`;
+  $('meName').innerHTML = `${icon('user')} ${esc(ME.name)} <small>@${esc(ME.username)}</small>`;
+  $('roleBadge').innerHTML = isOwner() ? `${icon('crown')} เจ้าของร้าน` : `${icon('user')} พนักงาน`;
   document.querySelectorAll('[data-perm]').forEach(el => el.classList.toggle('hidden', !canAny(el.dataset.perm)));
   $('catList').innerHTML = cats().map(c => `<option value="${esc(c)}">`).join('');
-  const waitN = S.menu.filter(m => m.pending).length;
-  document.querySelector('nav [data-tab="menu"]').innerHTML = 'เมนูอาหาร' + (waitN && can('menu') ? `<span class="navbadge" title="รออนุมัติราคา">${waitN}</span>` : '');
+  const waitN = can('menu') ? S.menu.filter(m => m.pending).length : 0;
+  $('menuBadge').textContent = waitN;
+  $('menuBadge').classList.toggle('hidden', !waitN);
+  $('bellDot').classList.toggle('hidden', !waitN);
+  $('bellBtn').title = waitN ? `เมนูรออนุมัติราคา ${waitN} รายการ` : 'ไม่มีเมนูรออนุมัติ';
   renderTables(); renderMenu();
   if (can('settings')) renderSettings();
 }
 
 function renderTables() {
   const busy = S.tables.filter(t => t.status === 'busy');
-  $('liveStats').innerHTML = `
-    <div class="stat"><span class="muted">โต๊ะว่าง</span><b>${S.tables.filter(t => t.status === 'free').length} / ${S.tables.length}</b></div>
-    <div class="stat"><span class="muted">กำลังทาน</span><b>${busy.length} โต๊ะ</b></div>
-    <div class="stat"><span class="muted">จองไว้</span><b>${S.tables.filter(t => t.status === 'resv').length} โต๊ะ</b></div>
-    <div class="stat"><span class="muted">ยอดค้างชำระ</span><b>฿${baht(busy.reduce((a, t) => a + calc(t.order, t.discount).total, 0))}</b></div>`;
+  const freeN = S.tables.filter(t => t.status === 'free').length;
+  const pct = S.tables.length ? Math.round(freeN / S.tables.length * 100) : 0;
+  const card = (cls, ic, label, value, extra = '') =>
+    `<div class="scard ${cls}"><span class="sico">${icon(ic)}</span><div class="sbody"><span>${label}</span><b>${value}</b>${extra}</div>${icon(ic, 'sbg')}</div>`;
+  $('liveStats').innerHTML =
+    card('s-free', 'table', 'โต๊ะว่าง', `${freeN} / ${S.tables.length}`, `<span class="sbar"><i style="width:${pct}%"></i></span>`)
+    + card('s-busy', 'users', 'กำลังทาน', `${busy.length} โต๊ะ`)
+    + card('s-resv', 'clock', 'จองไว้', `${S.tables.filter(t => t.status === 'resv').length} โต๊ะ`)
+    + card('s-due', 'cash', 'ยอดค้างชำระ', `฿${baht(busy.reduce((a, t) => a + calc(t.order, t.discount).total, 0))}`);
   const ids = waitIds();
   $('tableGrid').innerHTML = S.tables.map(t => {
     let st = 'ว่าง', info = '';
@@ -34,9 +42,28 @@ function renderTables() {
         : 'มีลูกค้า' + (t.order.some(i => i.qty > i.sent) ? ' · ยังไม่ส่งครัว' : '');
       info = `${t.order.reduce((a, i) => a + i.qty, 0)} รายการ · ฿${baht(calc(t.order, t.discount).total)} · ${mins} นาที`;
     }
-    return `<button class="tbl ${t.status}${t.checked ? ' checked' : ''}${wait ? ' wait' : ''}" data-id="${t.id}"><b>โต๊ะ ${esc(t.name)}</b><span class="st">${st}</span><small>${info}</small></button>`;
+    // one big action per card: free -> start using it, booked -> seat the guests, busy -> open the order
+    const btn = t.status === 'free' ? ['go', 'chair', 'ใช้งาน']
+      : t.status === 'resv' ? ['go', 'chair', 'เปิดโต๊ะ']
+      : t.checked ? ['pay', 'receipt', 'รับชำระ'] : ['view', 'receipt', 'ดูออเดอร์'];
+    return `<div class="tbl ${t.status}${t.checked ? ' checked' : ''}${wait ? ' wait' : ''}" data-id="${t.id}" role="button" tabindex="0">
+      <div class="thead">${icon('table', 'tico')}<b>โต๊ะ ${esc(t.name)}</b></div>
+      <span class="pill"><i></i>${st}</span>
+      ${info ? `<small>${info}</small>` : ''}
+      <button class="tact ${btn[0]}" type="button" data-act="${t.status}">${icon(btn[1])}<span>${btn[2]}</span></button>
+    </div>`;
   }).join('');
-  $('tableGrid').querySelectorAll('.tbl').forEach(el => el.onclick = () => openTable(Number(el.dataset.id)));
+  $('tableGrid').querySelectorAll('.tbl').forEach(el => {
+    const id = Number(el.dataset.id);
+    el.onclick = () => openTable(id);
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTable(id); } };
+    // "ใช้งาน"/"เปิดโต๊ะ" opens the table for ordering in one tap; other states just open it
+    el.querySelector('.tact').onclick = async e => {
+      e.stopPropagation();
+      if (e.currentTarget.dataset.act !== 'busy' && !(await act('open', { table: id }))) return;
+      openTable(id);
+    };
+  });
 }
 
 // has the bill changed since it was printed for the customer?
@@ -150,3 +177,8 @@ $('bulkSave').onclick = async () => {
   toast(`เพิ่มแล้ว ${d.added} รายการ`);
   if (items.length > d.added || bad.length) alert(`เพิ่มแล้ว ${d.added} รายการ` + (items.length > d.added ? ` (ข้ามชื่อซ้ำ/ราคาผิด ${items.length - d.added})` : '') + (bad.length ? `\nอ่านไม่ได้ ${bad.length} บรรทัด (เหลือในกล่อง)` : ''));
 };
+
+/* ---------- header: bell + account menu ---------- */
+$('bellBtn').onclick = () => showTab('menu');
+$('acctBtn').onclick = e => { e.stopPropagation(); $('acctMenu').classList.toggle('hidden'); };
+document.addEventListener('click', e => { if (!$('acctMenu').contains(e.target)) $('acctMenu').classList.add('hidden'); });
