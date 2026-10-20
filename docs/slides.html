@@ -128,7 +128,7 @@ table.t td.c, table.t th.c { text-align: center; }
   <div class="kick">ขั้นตอนหลัก</div>
   <h1>ลูกค้า 1 โต๊ะ ตั้งแต่เข้าร้านจนจ่ายเงิน</h1>
   <div class="flow">
-    <div class="f"><div class="n2">1</div><b>จองโต๊ะ</b><span>ใส่ชื่อ เบอร์ เวลา จำนวนคน (ถ้ามี)</span></div>
+    <div class="f"><div class="n2">1</div><b>จองโต๊ะ</b><span>ใส่วัน-เวลา และจำนวนคน (ถ้ามี)</span></div>
     <div class="arr">›</div>
     <div class="f"><div class="n2">2</div><b>เปิดโต๊ะ</b><span>เมื่อลูกค้านั่ง กด "เปิดโต๊ะ / เริ่มสั่งอาหาร"</span></div>
     <div class="arr">›</div>
@@ -191,7 +191,7 @@ table.t td.c, table.t th.c { text-align: center; }
         <div class="tbls">
           <div class="tbl busy"><b>โต๊ะ 1</b><span class="st">มีลูกค้า</span><br><small>5 รายการ · ฿860 · 45 นาที</small></div>
           <div class="tbl"><b>โต๊ะ 2</b><span class="st">ว่าง</span></div>
-          <div class="tbl resv"><b>โต๊ะ 3</b><span class="st">จองแล้ว</span><br><small>คุณเอ · 19:00 · 4 คน</small></div>
+          <div class="tbl resv"><b>โต๊ะ 3</b><span class="st">จองแล้ว</span><br><small>2026-10-20 19:00 · 4 คน</small></div>
           <div class="tbl"><b>โต๊ะ 4</b><span class="st">ว่าง</span></div>
           <div class="tbl busy"><b>โต๊ะ 5</b><span class="st">มีลูกค้า</span><br><small>2 รายการ · ฿380 · 12 นาที</small></div>
           <div class="tbl"><b>โต๊ะ 6</b><span class="st">ว่าง</span></div>
@@ -204,7 +204,7 @@ table.t td.c, table.t th.c { text-align: center; }
       <p style="margin-top:0">แตะโต๊ะใดก็ได้เพื่อเปิดหน้าต่างของโต๊ะนั้น</p>
       <div class="legend" style="flex-direction:column;gap:10px">
         <span><i style="background:var(--free)"></i><b>ว่าง</b> · จองหรือเปิดโต๊ะได้</span>
-        <span><i style="background:var(--resv)"></i><b>จองแล้ว</b> · แสดงชื่อ เวลา จำนวนคน</span>
+        <span><i style="background:var(--resv)"></i><b>จองแล้ว</b> · แสดงเวลาและจำนวนคน</span>
         <span><i style="background:var(--busy)"></i><b>มีลูกค้า</b> · จำนวนรายการ ยอด เวลาที่นั่ง และเตือน "ยังไม่ส่งครัว" / "รอชำระ"</span>
       </div>
       <p>แถวบนสรุปจำนวนโต๊ะและยอดที่ยังไม่ได้เก็บเงิน</p>
@@ -223,7 +223,7 @@ table.t td.c, table.t th.c { text-align: center; }
       <h2>จองโต๊ะล่วงหน้า</h2>
       <ol class="steps">
         <li>แตะโต๊ะที่ <b>ว่าง</b></li>
-        <li>กรอกชื่อลูกค้า (จำเป็น), เบอร์โทร, วัน-เวลา, จำนวนคน</li>
+        <li>กรอกวัน-เวลา และจำนวนคน</li>
         <li>กด <span class="k">จองโต๊ะ</span> โต๊ะเปลี่ยนเป็นสีส้ม</li>
         <li>แก้ข้อมูลได้ด้วย <span class="k">บันทึกการจอง</span> หรือกด <span class="k">ยกเลิกการจอง</span></li>
       </ol>
