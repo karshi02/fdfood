@@ -377,12 +377,19 @@ table.t td.c, table.t th.c { text-align: center; }
   <div class="grid2" style="grid-template-columns:1.15fr 1fr">
     <div class="mock">
       <div class="mbody">
-        <div class="chips"><span class="chip on">ช่วงวันที่ · 7 วันล่าสุด</span></div>
-        <div class="stats">
-          <div class="stat"><i>รายรับ</i><b>฿48,920</b></div>
-          <div class="stat"><i>รายจ่าย</i><b>฿21,300</b></div>
-          <div class="stat"><i>กำไร</i><b>฿27,620</b></div>
-          <div class="stat"><i>บิล</i><b>164</b></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:15px">สวัสดีตอนเย็น สมชาย 👋</b><span class="chip on">ช่วงวันที่ · 7 วันล่าสุด</span></div>
+        <div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:8px 0;font-size:12px"><small class="muted">โต๊ะตอนนี้</small> <b>มีลูกค้า 3 โต๊ะ · จองไว้ 1 โต๊ะ</b> ›</div>
+        <div style="border:1px solid var(--line);border-radius:12px;padding:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px"><b>ยอดขาย <span class="muted">· 7 วันล่าสุด</span></b><span style="border:1px solid var(--line);border-radius:999px;padding:0 8px">ซ่อน</span></div>
+          <div style="font-size:30px;font-weight:700;line-height:1.2">48,920 <span style="font-size:13px;font-weight:500">บาท</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span class="muted">เก็บเงินได้แล้ว</span><b>94%</b></div>
+          <div style="height:6px;background:var(--line);border-radius:3px;margin:3px 0 8px"><div style="width:94%;height:100%;background:var(--free);border-radius:3px"></div></div>
+          <div class="stats" style="margin:0">
+            <div class="stat"><i>รับเงินแล้ว</i><b>48,920</b></div>
+            <div class="stat"><i>รายจ่าย</i><b style="color:var(--danger)">21,300</b></div>
+            <div class="stat"><i>ค้างรับ</i><b style="color:var(--resv)">3,120</b></div>
+            <div class="stat"><i>กำไรสุทธิ</i><b style="color:var(--free)">27,620</b></div>
+          </div>
         </div>
         <div style="font-weight:600;margin:6px 0 2px">รายรับ / รายจ่าย รายวัน</div>
         <div class="bars">
@@ -399,7 +406,9 @@ table.t td.c, table.t th.c { text-align: center; }
     <div>
       <ol class="steps">
         <li>กด <span class="k">ช่วงวันที่</span> เปิดปฏิทิน เลือกวันเริ่ม-วันสุดท้าย หรือปุ่มลัด (วันนี้ / 7 วันล่าสุด / 30 วันล่าสุด / เดือนนี้ ...)</li>
-        <li>ดูยอดรวม กราฟรายวัน รายจ่ายตามหมวด รายรับตามช่องทางชำระ และเมนูทำเงินสูงสุด</li>
+        <li>การ์ดยอดขาย: ยอดรวม, <b>เก็บเงินได้แล้ว</b> กี่ % (นับยอดโต๊ะที่ยังเปิดอยู่), รับเงินแล้ว / รายจ่าย / ค้างรับ / กำไรสุทธิ · แตะช่องไหนก็พาไปดูรายละเอียด (ค้างรับ ไปแท็บโต๊ะ, ยอดใหญ่ ไปแท็บยอดขาย)</li>
+        <li>ปุ่ม <span class="k">ซ่อน</span> เบลอตัวเลขเวลาลูกค้ามองจอ (จำไว้ในเครื่องนั้น)</li>
+        <li>ด้านล่าง: กราฟรายวัน รายจ่ายตามหมวด รายรับตามช่องทางชำระ และเมนูทำเงินสูงสุด</li>
         <li><b>บันทึกรายจ่าย</b>: วันที่, หมวด (เช่น วัตถุดิบ ค่าแรง), จำนวนเงิน, รายละเอียด</li>
       </ol>
       <div class="legend"><span><i style="background:var(--brand)"></i>รายรับ</span><span><i style="background:var(--exp)"></i>รายจ่าย</span></div>
