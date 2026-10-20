@@ -19,7 +19,7 @@ function dayData() {
   const catOf = new Map(S.menu.map(m => [m.name, m.cat])), byCat = {};
   Object.values(items).forEach(i => { const k = catOf.get(i.name) || '', x = byCat[k] || (byCat[k] = { cat: k, qty: 0, amt: 0 }); x.qty += i.qty; x.amt += i.amt; });
   return { bills: report.bills, ok, byMethod, total: ok.reduce((a, b) => a + b.total, 0), disc: ok.reduce((a, b) => a + b.disc, 0),
-    top: Object.values(items).sort((a, b) => b.qty - a.qty), cats: Object.values(byCat).sort((a, b) => b.amt - a.amt) };
+    top: Object.values(items).sort((a, b) => b.amt - a.amt || b.qty - a.qty), cats: Object.values(byCat).sort((a, b) => b.amt - a.amt) };
 }
 function renderReport() {
   const d = dayData();
