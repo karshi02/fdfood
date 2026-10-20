@@ -1,0 +1,30 @@
+/* date-range calendar sheet (calendar.js) and the date button that opens it */
+.datebtn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 16px; border-radius: 14px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--brand-line); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; box-shadow: var(--shadow); }
+.datebtn .ic { width: 22px; height: 22px; color: var(--brand); flex: 0 0 auto; }
+.datebtn small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); text-align: left; }
+.datebtn:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.rbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+
+.calwrap { position: fixed; inset: 0; z-index: 60; background: rgba(20, 6, 8, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.calsheet { width: 100%; max-width: 380px; background: var(--card); color: var(--ink); border-radius: 20px; padding: 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, .4); }
+.calhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 18px; }
+.calx { border: 0; background: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; color: var(--muted); display: grid; place-items: center; }
+.calx .ic { width: 22px; height: 22px; }
+.calpre { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; scrollbar-width: none; }
+.calpre .chip { flex: 0 0 auto; }
+.calnav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.calnav b { font-size: 17px; }
+.calnav button { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); cursor: pointer; display: grid; place-items: center; color: var(--brand); }
+.calnav button:disabled { opacity: .35; cursor: default; }
+.calnav .ic { width: 20px; height: 20px; }
+.calgrid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 4px; text-align: center; }
+.calgrid i { font-style: normal; font-size: 13px; color: var(--muted); padding: 4px 0; }
+.cd { height: 42px; border: 0; background: none; font: inherit; font-size: 16px; color: var(--ink); cursor: pointer; border-radius: 0; font-variant-numeric: tabular-nums; }
+.cd.today { font-weight: 700; color: var(--brand); text-decoration: underline; text-underline-offset: 4px; }
+.cd.in { background: var(--brand-soft-2); }
+.cd.from, .cd.to { background: var(--brand); color: #fff; text-decoration: none; }
+.cd.from { border-radius: 12px 0 0 12px; } .cd.to { border-radius: 0 12px 12px 0; } .cd.from.to { border-radius: 12px; }
+.cd:disabled { color: var(--line-strong, #ccc); cursor: default; }
+.calhint { margin: 10px 0; min-height: 20px; font-size: 14px; color: var(--muted); text-align: center; }
+.calok { width: 100%; min-height: 48px; font-size: 17px; }

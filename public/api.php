@@ -663,9 +663,14 @@ try {
         break;
     case 'bills':
         need('report');
-        $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
+        // one day (date=) or a from..to range; older open pages still send date=
+        $ymd = fn($k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET[$k] ?? '') ? $_GET[$k] : null;
+        $from = $ymd('from') ?? $ymd('date') ?? date('Y-m-d');
+        $to = $ymd('to') ?? $from;
+        if ($from > $to) [$from, $to] = [$to, $from];
+        if ((strtotime($to) - strtotime($from)) / 86400 > 400) fail('เลือกช่วงได้ไม่เกิน 400 วัน');
         $rows = q('SELECT b.*, u.name AS cashier FROM bills b LEFT JOIN users u ON u.id = b.cashier_id WHERE b.created_at >= ? AND b.created_at < ? + INTERVAL 1 DAY ORDER BY b.id',
-            [$date, $date])->fetchAll();
+            [$from, $to])->fetchAll();
         out(['bills' => array_map('bill_out', $rows)]);
     case 'dash':
         need('report');

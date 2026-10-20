@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="css/bottomnav.css">
 <link rel="stylesheet" href="css/sheet.css">
 <link rel="stylesheet" href="css/press.css">
+<link rel="stylesheet" href="css/calendar.css">
 </head>
 <body>
 <div id="login" class="hidden">
@@ -154,9 +155,9 @@
   </section>
 
   <section id="tab-report" class="hidden">
-    <div class="row" style="margin-bottom:12px;max-width:420px">
-      <div><label>วันที่</label><input type="date" id="rDate"></div>
-      <div style="flex:0 0 auto"><button class="btn ghost" id="rPrint">พิมพ์บิลรวมทั้งวัน</button></div>
+    <div class="rbar">
+      <button class="datebtn" id="rRange" type="button"><span data-ic="calendar"></span><span><small>ช่วงวันที่</small><span id="rRangeTxt"></span></span></button>
+      <button class="btn ghost" id="rPrint">พิมพ์บิลรวม</button>
     </div>
     <div class="stats" id="repStats"></div>
     <div class="split">
@@ -286,6 +287,7 @@
 <script src="js/press.js"></script>
 <script src="js/core.js"></script>
 <script src="js/render.js"></script>
+<script src="js/calendar.js"></script>
 <script src="js/report.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/settings.js"></script>

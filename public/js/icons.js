@@ -19,6 +19,7 @@ const ICON_PATHS = {
   minus: '<path d="M5 12h14"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
   next: '<path d="M9 18l6-6-6-6"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   close: '<path d="M18 6L6 18M6 6l12 12"/>',
   swap: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
   cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a1.5 1.5 0 0 0 1.5 1.1h8.9a1.5 1.5 0 0 0 1.4-1.1L22 7H6"/>',

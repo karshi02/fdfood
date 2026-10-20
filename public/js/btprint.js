@@ -489,7 +489,7 @@ const BT = (() => {
   function drawDay(d) {
     const s = S.settings, L = layout(state.paper), Z = L.Z;
     L.center(s.name || 'โคขุน', Z.title, true);
-    L.center(`บิลรวมทั้งวัน ${d.date}`, Z.base, true);
+    L.center(d.title || `บิลรวมทั้งวัน ${d.date}`, Z.base, true);
     L.rule();
     for (const i of d.top) L.pair(`${i.qty} x ${i.name}`, baht(i.amt), Z.item, true);
     L.rule();

@@ -1,10 +1,12 @@
 /* ---------- report (admin) ---------- */
-$('rDate').value = dayKey(Date.now());
-let rDatePicked = false;
-$('rDate').onchange = () => { rDatePicked = $('rDate').value !== dayKey(Date.now()); loadReport(); };
+// sales for one day or a from..to range picked on the calendar; rPicked keeps a picked range when coming back to the tab
+let rFrom = dayKey(Date.now()), rTo = rFrom, rPicked = false;
+function setRange(f, t) { rFrom = f; rTo = t; $('rRangeTxt').textContent = thRange(f, t); }
+setRange(rFrom, rTo);
+$('rRange').onclick = () => pickRange(rFrom, rTo, (f, t) => { const today = dayKey(Date.now()); rPicked = !(f === today && t === today); setRange(f, t); loadReport(); });
 let report = { bills: [] };
 async function loadReport() {
-  const d = await act('bills&date=' + $('rDate').value);
+  const d = await act(`bills&from=${rFrom}&to=${rTo}`);
   if (d) { report = d; renderReport(); }
 }
 function dayData() {
@@ -28,7 +30,7 @@ function renderReport() {
     <div class="stat"><span class="muted">ส่วนลดรวม</span><b>฿${baht(d.disc)}</b></div>
     ${Object.entries(d.byMethod).map(([k, v]) => `<div class="stat"><span class="muted">${METHODS[k]}</span><b>฿${baht(v)}</b></div>`).join('')}`;
   $('billBody').innerHTML = d.bills.slice().reverse().map(b => `<tr class="${b.void ? 'void' : ''}">
-    <td><button class="linkbtn" data-view="${b.no}" title="ดูรายการในบิล">#${billNo(b)}</button></td><td>${toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td><td>${esc(b.table)}</td>
+    <td><button class="linkbtn" data-view="${b.no}" title="ดูรายการในบิล">#${billNo(b)}</button></td><td style="white-space:nowrap">${rFrom === rTo ? '' : calDay(dayKey(toDate(b.date))) + ' '}${toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td><td>${esc(b.table)}</td>
     <td>${esc(b.cashier)}</td><td>${b.void ? 'ยกเลิก' : METHODS[b.method]}${b.method === 'mixed' && !b.void ? `<div class="muted">สด ${baht(b.total - b.transfer)} · โอน ${baht(b.transfer)}</div>` : ''}</td><td class="num">${baht(b.total)}</td>
     <td class="num" style="white-space:nowrap"><button class="btn ghost sm" data-print="${b.no}">พิมพ์ซ้ำ</button>
     ${isOwner() ? `<button class="btn ghost sm" data-redate="${b.no}">เปลี่ยนวัน</button>` : ''}
@@ -36,7 +38,7 @@ function renderReport() {
     ${!b.void && isOwner() ? `<div class="owneract">
       <select data-method="${b.no}" title="เปลี่ยนวิธีชำระ">${PAY_METHODS.concat(PAY_METHODS.includes(b.method) ? [] : [b.method]).map(k => `<option value="${k}" ${k === b.method ? 'selected' : ''}>${METHODS[k]}</option>`).join('')}</select>
       <button class="btn warn sm" data-reopen="${b.no}">เปิดบิลชำระใหม่</button></div>` : ''}</td></tr>`).join('')
-    || '<tr><td colspan="7" class="muted">ไม่มีบิลวันนี้</td></tr>';
+    || `<tr><td colspan="7" class="muted">ไม่มีบิล${rFrom === rTo ? 'วันนี้' : 'ในช่วงนี้'}</td></tr>`;
   $('topBody').innerHTML = d.top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${i.qty}</td><td class="num">${baht(i.amt)}</td></tr>`).join('')
     || '<tr><td colspan="3" class="muted">-</td></tr>';
   const catSum = d.cats.reduce((a, c) => a + c.amt, 0) || 1, catMax = d.cats.length ? d.cats[0].amt || 1 : 1;
@@ -98,15 +100,16 @@ async function redateBill(b) {
   if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(date)) return alert('รูปแบบวันเวลาไม่ถูกต้อง เช่น 2026-10-20 18:30');
   if (await act('bill_date', { no: b.no, date })) { toast(`ย้ายบิล #${billNo(b)} ไป ${date} แล้ว`); loadReport(); }
 }
-// one big bill for the whole day: all dishes added up, every bill listed (voided ones marked), totals
+// one big bill for the picked day or range: all dishes added up, every bill listed (voided ones marked), totals
 $('rPrint').onclick = async () => {
   const d = dayData(), s = S.settings;
-  d.date = $('rDate').value;
-  d.time = b => toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-  if (!d.bills.length) return toast('ไม่มีบิลในวันนี้');
-  if (await viaBluetooth(() => BT.printDay(d), 'บิลรวมทั้งวัน')) return;
+  d.date = thRange(rFrom, rTo);
+  d.title = (rFrom === rTo ? 'บิลรวมทั้งวัน ' : 'บิลรวม ') + d.date;
+  d.time = b => (rFrom === rTo ? '' : calDay(dayKey(toDate(b.date))) + ' ') + toDate(b.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  if (!d.bills.length) return toast('ไม่มีบิลในช่วงนี้');
+  if (await viaBluetooth(() => BT.printDay(d), 'บิลรวม')) return;
   $('receipt').className = '';
-  $('receipt').innerHTML = `<div class="c"><h3>${esc(s.name)}</h3><div><b>บิลรวมทั้งวัน ${esc(d.date)}</b></div></div><hr>
+  $('receipt').innerHTML = `<div class="c"><h3>${esc(s.name)}</h3><div><b>${esc(d.title)}</b></div></div><hr>
     <table>${d.top.map(i => `<tr><td>${i.qty} x ${esc(i.name)}</td><td class="r">${baht(i.amt)}</td></tr>`).join('')}</table><hr>
     <table>${d.bills.map(b => `<tr><td>#${billNo(b)} ${d.time(b)} โต๊ะ ${esc(b.table)}</td><td class="r">${b.void ? 'ยกเลิก' : baht(b.total)}</td></tr>`).join('')}</table><hr>
     <table><tr><td>จำนวนบิล</td><td class="r">${d.ok.length}</td></tr>

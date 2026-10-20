@@ -102,7 +102,7 @@ function showTab(name) {
   document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + name));
   // the page may have been open since yesterday: re-anchor "today" unless a date was picked by hand
   if (name === 'dash') { if (dashPreset) setPreset(dashPreset); else loadDash(); if (!$('eId').value) $('eDate').value = dayKey(Date.now()); }
-  if (name === 'report') { if (!rDatePicked) $('rDate').value = dayKey(Date.now()); loadReport(); }
+  if (name === 'report') { if (!rPicked) setRange(dayKey(Date.now()), dayKey(Date.now())); loadReport(); }
   if (name === 'settings' && can('users')) loadUsers();
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
