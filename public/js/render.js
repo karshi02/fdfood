@@ -21,19 +21,36 @@ function render() {
   if (can('settings')) renderSettings();
 }
 
+// tapping a summary card shows only those tables ('' = all); "ยอดค้างชำระ" lists open tables, biggest bill first
+let tFilter = '';
+const T_FILTERS = {
+  free: ['โต๊ะว่าง', t => t.status === 'free'], busy: ['กำลังทาน', t => t.status === 'busy'],
+  resv: ['จองไว้', t => t.status === 'resv'], due: ['ค้างชำระ', t => t.status === 'busy' && t.order.length],
+};
 function renderTables() {
   const busy = S.tables.filter(t => t.status === 'busy');
   const freeN = S.tables.filter(t => t.status === 'free').length;
   const pct = S.tables.length ? Math.round(freeN / S.tables.length * 100) : 0;
-  const card = (cls, ic, label, value, extra = '') =>
-    `<div class="scard ${cls}"><span class="sico">${icon(ic)}</span><div class="sbody"><span>${label}</span><b>${value}</b>${extra}</div>${icon(ic, 'sbg')}</div>`;
+  const card = (f, cls, ic, label, value, extra = '') =>
+    `<button type="button" class="scard ${cls}${tFilter === f ? ' on' : ''}" data-f="${f}" aria-pressed="${tFilter === f}"><span class="sico">${icon(ic)}</span><div class="sbody"><span>${label}</span><b>${value}</b>${extra}</div>${icon(ic, 'sbg')}</button>`;
   $('liveStats').innerHTML =
-    card('s-free', 'table', 'โต๊ะว่าง', `${freeN} / ${S.tables.length}`, `<span class="sbar"><i style="width:${pct}%"></i></span>`)
-    + card('s-busy', 'users', 'กำลังทาน', `${busy.length} โต๊ะ`)
-    + card('s-resv', 'clock', 'จองไว้', `${S.tables.filter(t => t.status === 'resv').length} โต๊ะ`)
-    + card('s-due', 'cash', 'ยอดค้างชำระ', `฿${baht(busy.reduce((a, t) => a + calc(t.order, t.discount).total, 0))}`);
+    card('free', 's-free', 'table', 'โต๊ะว่าง', `${freeN} / ${S.tables.length}`, `<span class="sbar"><i style="width:${pct}%"></i></span>`)
+    + card('busy', 's-busy', 'users', 'กำลังทาน', `${busy.length} โต๊ะ`)
+    + card('resv', 's-resv', 'clock', 'จองไว้', `${S.tables.filter(t => t.status === 'resv').length} โต๊ะ`)
+    + card('due', 's-due', 'cash', 'ยอดค้างชำระ', `฿${baht(busy.reduce((a, t) => a + calc(t.order, t.discount).total, 0))}`);
+  $('liveStats').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { tFilter = tFilter === b.dataset.f ? '' : b.dataset.f; renderTables(); });
+  let shown = S.tables;
+  if (tFilter) {
+    shown = S.tables.filter(T_FILTERS[tFilter][1]);
+    if (tFilter === 'due') shown = shown.slice().sort((a, b) => calc(b.order, b.discount).total - calc(a.order, a.discount).total);
+  }
+  $('tFilterBar').classList.toggle('hidden', !tFilter);
+  if (tFilter) {
+    $('tFilterBar').innerHTML = `<span>แสดงเฉพาะ <b>${T_FILTERS[tFilter][0]}</b> · ${shown.length} โต๊ะ</span><button type="button" id="tFilterOff">${icon('close')}<span>แสดงทั้งหมด</span></button>`;
+    $('tFilterOff').onclick = () => { tFilter = ''; renderTables(); };
+  }
   const ids = waitIds();
-  $('tableGrid').innerHTML = S.tables.map(t => {
+  $('tableGrid').innerHTML = (tFilter && !shown.length ? `<p class="tempty">ไม่มีโต๊ะ${T_FILTERS[tFilter][0].replace('โต๊ะ', '')}ตอนนี้</p>` : '') + shown.map(t => {
     let st = 'ว่าง', info = '';
     const wait = t.status === 'busy' && hasWait(t, ids);
     if (t.status === 'resv') { st = 'จองแล้ว'; info = [t.resv.name, t.resv.time, t.resv.pax + ' คน'].filter(Boolean).map(esc).join(' · '); }
@@ -41,6 +58,7 @@ function renderTables() {
       const mins = Math.max(0, Math.floor((Date.now() - toDate(t.openedAt)) / 60000));
       st = wait ? 'รออนุมัติราคาเมนูใหม่'
         : t.checked ? (sameTotal(t) ? 'เช็คบิลแล้ว · รอชำระ' : 'ยอดเปลี่ยนหลังเช็คบิล')
+        : !t.order.length && t.guestOpen ? 'รอลูกค้าสแกนสั่ง'
         : 'มีลูกค้า' + (t.order.some(i => i.qty > i.sent) ? ' · ยังไม่ส่งครัว' : '');
       info = `${t.pax ? t.pax + ' คน · ' : ''}${t.takeaway ? 'กลับบ้าน · ' : ''}${t.order.reduce((a, i) => a + i.qty, 0)} รายการ · ฿${baht(calc(t.order, t.discount).total)} · ${mins} นาที`;
     }
@@ -103,6 +121,9 @@ function renderMenu() {
   $('menuList').innerHTML = [...groups].filter(([, ms]) => ms.length).map(([k, ms]) => `
     <div class="mgroup">${k === WAIT ? 'รออนุมัติราคา' + (editable ? '' : ' (ให้คนที่มีสิทธิ์แก้เมนูอนุมัติ)') : esc(k || 'ไม่มีหมวด')} <span class="muted">${ms.length}</span></div>
     ${ms.map(m => `<div class="mrow${m.out ? ' out' : ''}${m.id === edit ? ' editing' : ''}${m.pending ? ' wait' : ''}">
+      <span class="mpic${m.image ? ' has' : ''}">${editable ? `<button type="button" class="mpicbtn" data-pic="${m.id}" aria-label="${m.image ? 'เปลี่ยนรูป' : 'ใส่รูป'} ${esc(m.name)}">` : ''}${m.image
+        ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : `${icon(catIcon(m.cat + ' ' + m.name))}${editable ? '<small>+ รูป</small>' : ''}`}${editable ? '</button>' : ''}${editable && m.image
+        ? `<button type="button" class="mpicdel" data-picdel="${m.id}" aria-label="ลบรูป ${esc(m.name)}">${icon('close')}</button>` : ''}</span>
       <div class="mname">${esc(m.name)}${m.pending ? `<span class="tag wait">รออนุมัติ</span><div class="muted">${esc(m.cat || 'ไม่มีหมวด')}${m.by ? ' · เพิ่มโดย ' + esc(m.by) : ''}</div>` : ''}${editable && !m.pending
         ? `<select class="mcatsel" data-mcatsel="${m.id}" aria-label="หมวดของ ${esc(m.name)}">${[...all, ''].map(k => `<option value="${esc(k)}" ${k === m.cat ? 'selected' : ''}>${esc(k || 'ไม่มีหมวด')}</option>`).join('')}<option value="${NEWCAT}">+ หมวดใหม่...</option></select>` : ''}</div>
       <div class="mprice">฿${baht(m.price)}</div>
@@ -125,6 +146,11 @@ function renderMenu() {
     s.blur(); // let the list re-render with the dish under its new category
     if (await act('menu_cat', { id: m.id, cat })) toast(`ย้าย "${m.name}" ไปหมวด ${cat || 'ไม่มีหมวด'} แล้ว`);
     else renderMenu();
+  });
+  $('menuList').querySelectorAll('[data-pic]').forEach(b => b.onclick = () => pickDishPhoto(S.menu.find(x => x.id == b.dataset.pic)));
+  $('menuList').querySelectorAll('[data-picdel]').forEach(b => b.onclick = async () => {
+    const m = S.menu.find(x => x.id == b.dataset.picdel);
+    if (confirm(`ลบรูปของ "${m.name}"?`) && await act('menu_img', { id: m.id, data: '' })) toast(`ลบรูป "${m.name}" แล้ว`);
   });
   $('menuList').querySelectorAll('[data-out]').forEach(b => b.onclick = async () => {
     const m = S.menu.find(x => x.id == b.dataset.out);
@@ -228,3 +254,22 @@ $('bulkSave').onclick = async () => {
 $('bellBtn').onclick = () => showTab('menu');
 $('acctBtn').onclick = e => { e.stopPropagation(); $('acctMenu').classList.toggle('hidden'); };
 document.addEventListener('click', e => { if (!$('acctMenu').contains(e.target)) $('acctMenu').classList.add('hidden'); });
+
+// dish photo: camera or gallery, shrunk on the phone to a small JPEG (max 640 px) before upload
+const photoInput = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*' });
+function pickDishPhoto(m) {
+  photoInput.value = '';
+  photoInput.onchange = async () => {
+    const f = photoInput.files[0];
+    if (!f) return;
+    try {
+      const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = URL.createObjectURL(f); });
+      const k = Math.min(1, 640 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = Object.assign(document.createElement('canvas'), { width: Math.round(img.naturalWidth * k), height: Math.round(img.naturalHeight * k) });
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      if (await act('menu_img', { id: m.id, data: c.toDataURL('image/jpeg', 0.82) })) toast(`ใส่รูป "${m.name}" แล้ว`);
+    } catch { alert('เปิดรูปนี้ไม่ได้ ลองรูปอื่น'); }
+  };
+  photoInput.click();
+}

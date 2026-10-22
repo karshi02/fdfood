@@ -54,9 +54,10 @@ function renderDash() {
     <td class="num" style="color:${x.income - x.expense < 0 ? 'var(--danger)' : 'inherit'}">${baht(x.income - x.expense)}</td></tr>`).join('');
 
   $('expCats').innerHTML = [...new Set([...EXP_CATS, ...Object.keys(byCat)])].map(c => `<option value="${esc(c)}">`).join('');
-  $('expBody').innerHTML = dash.expenses.map(e => `<tr><td style="white-space:nowrap">${thDay(e.date)}</td><td>${esc(e.cat)}</td>
-    <td class="muted">${esc(e.note)}</td><td class="num">${baht(e.amount)}</td>
-    <td class="num" style="white-space:nowrap"><button class="btn ghost sm" data-eedit="${e.id}">แก้ไข</button> <button class="btn ghost sm" data-edel="${e.id}">ลบ</button></td></tr>`).join('')
+  // phone: each expense is a card with the note on its own full-width line (see .exptbl in pages.css)
+  $('expBody').innerHTML = dash.expenses.map(e => `<tr data-exp="${e.id}"><td class="xdate">${thDay(e.date)}</td><td class="xcat">${esc(e.cat)}</td>
+    <td class="xnote">${esc(e.note)}</td><td class="num xamt">${baht(e.amount)}</td>
+    <td class="num xact"><button class="btn ghost sm" data-eedit="${e.id}">แก้ไข</button> <button class="btn ghost sm" data-edel="${e.id}">ลบ</button></td></tr>`).join('')
     || '<tr><td colspan="5" class="muted">ยังไม่มีรายจ่ายในช่วงนี้</td></tr>';
   $('expBody').querySelectorAll('[data-eedit]').forEach(b => b.onclick = () => {
     const e = dash.expenses.find(x => x.id == b.dataset.eedit);

@@ -1,0 +1,32 @@
+/* โหมดสบายตา (gear menu): dim warm cards instead of bright white, softer text, a faint amber tint over everything.
+   Only tokens change here, plus the few places that hard-code white. Toggled by html.eye (comfort.js). */
+html.eye {
+  --page-1: #1b0d0c; --page-2: #2e1513;
+  --bg: #241a17; --card: #2c211e; --cream: #2c211e; --ink: #eee0cf; --muted: #b8a594; --line: #44342e; --line-strong: #5c4840;
+  --brand: #b3313d; --brand-ink: #f3b7ae; --brand-soft: #3e2427; --brand-soft-2: #4c2b2f; --brand-line: #6c3a40; --ring: rgba(243, 183, 174, .25);
+  --ok-soft: #1b3224; --ok-line: #2f5a3d; --free: #6cc489;
+  --warn: #e2a64b; --warn-soft: #382b15; --warn-line: #6a5125; --resv: #e2a64b; --busy: #e2876a;
+  --danger: #f17b7b; --danger-soft: #3c1f1f; --danger-soft-2: #4a2323; --danger-line: #6d3434;
+  --inc: #6c9ef5; --exp: #e8875b;
+  --on-dark: #f1e2cf; --on-dark-muted: #c9b29d; --gold: #e0b45a;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+/* less blue light: a warm veil that never blocks taps */
+html.eye body::after { content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: rgba(255, 150, 60, .07); }
+html.eye .tbl { border-color: #6a4b2c; }
+html.eye .sbox, html.eye .oqty span, html.eye .ptile, html.eye .uperms span { background: var(--bg); color: var(--ink); }
+html.eye .dsum .ds-bar span, html.eye .ds-bar span { background: var(--on-dark); }
+html.eye img { filter: brightness(.85); }
+html.eye .osubs { background: var(--bg); }
+html.eye .menulist .mrow .mprice, html.eye .mtext b { color: var(--brand-ink); }
+html.eye .btn.soft, html.eye .voidrow { background: var(--brand-soft); color: var(--brand-ink); }
+html.eye .dt.ok .dt-ic { background: var(--ok-soft); } html.eye .dt.due .dt-ic { background: var(--brand-soft); }
+/* printed bills stay black on white */
+@media print { html.eye { --card: #fff; --ink: #000; --bg: #fff; } html.eye body::after { content: none; } }
+
+.acct .eyebtn { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.eyesw { width: 40px; height: 22px; border-radius: 99px; background: var(--line-strong); position: relative; flex: 0 0 auto; transition: background .2s; }
+.eyesw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+html.eye .eyesw { background: var(--brand); }
+html.eye .eyesw::after { transform: translateX(18px); }

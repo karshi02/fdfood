@@ -103,6 +103,7 @@ function viewBill(b) {
     </table>
     <div class="bvacts">${billActs(b, false)}</div>`;
   bindBillActs($('bvBody'), () => $('billView').classList.add('hidden'));
+  if (b.slip) $('bvBody').insertAdjacentHTML('beforeend', `<div class="bvslip"><b>สลิปโอนเงิน</b><a href="${esc(b.slip)}" target="_blank" rel="noopener"><img src="${esc(b.slip)}" alt="สลิป"></a></div>`);
   $('bvPrint').onclick = () => printBill(b);
   $('billView').classList.remove('hidden');
 }

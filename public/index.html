@@ -20,8 +20,21 @@
 <link rel="stylesheet" href="css/press.css">
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/dash.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/comfort.css">
+<link rel="stylesheet" href="css/splash.css">
+<script>try { if (localStorage.getItem('eye') === '1') document.documentElement.classList.add('eye'); } catch (e) {}</script>
 </head>
 <body>
+<style>#splash{animation:sp-auto .5s ease 3.5s forwards}@keyframes sp-auto{to{opacity:0;visibility:hidden;pointer-events:none}}</style>
+<div id="splash" aria-hidden="true">
+  <div class="sp-box">
+    <div class="sp-logo"><img src="img/icon-192.png?v=2" alt=""></div>
+    <div class="sp-name">โคขุน</div>
+    <div class="sp-sub">ปิ้งย่างเนื้อโคขุน · POS</div>
+    <div class="sp-dots"><i></i><i></i><i></i></div>
+  </div>
+</div>
 <div id="login" class="hidden">
   <form class="card" id="loginForm">
     <h2 id="loginTitle" style="font-size:22px">โคขุน POS</h2>
@@ -47,6 +60,8 @@
         <button class="round" id="acctBtn" type="button" title="บัญชีผู้ใช้"><i data-ic="gear"></i></button>
         <div class="acct hidden" id="acctMenu">
           <div class="acct-name" id="meName"></div>
+          <button id="eyeBtn" type="button" class="eyebtn">โหมดสบายตา <span class="eyesw" aria-hidden="true"></span></button>
+          <a id="kitchenLink" href="kitchen.html" target="_blank" rel="noopener" class="acctlink">จอครัว (เสียงแจ้งออเดอร์)</a>
           <button id="printerBtn" type="button">เครื่องพิมพ์ใบเสร็จ <span class="pr-dot" id="printerDot"></span></button>
           <button id="chPass" type="button">เปลี่ยนรหัสผ่าน</button>
           <button id="logout" type="button" class="danger">ออกจากระบบ</button>
@@ -67,6 +82,7 @@
 <main>
   <section id="tab-tables">
     <div class="stats live" id="liveStats"></div>
+    <div class="tfbar hidden" id="tFilterBar"></div>
     <div class="tlegend">
       <span><i class="free"></i>ว่าง</span><span><i class="busy"></i>กำลังทาน</span>
       <span><i class="resv"></i>จองไว้</span><span><i class="checked"></i>รอชำระ</span>
@@ -94,7 +110,7 @@
         <div class="actions"><button class="btn brand sm" id="bulkSave" type="button">เพิ่มทั้งหมด</button></div>
       </div>
     </div>
-    <div class="card">
+    <div class="card menulist">
       <div class="menu-tools">
         <input id="menuSearch" type="search" placeholder="ค้นหาเมนูหรือหมวด...">
         <label class="perm" style="flex:0 0 auto"><input type="checkbox" id="menuOutOnly"> เฉพาะที่หมด</label>
@@ -135,7 +151,7 @@
           </div>
         </form>
         <datalist id="expCats"></datalist>
-        <div class="scroll-x"><table class="list" style="margin-top:10px"><thead><tr><th>วันที่</th><th>หมวด</th><th>รายละเอียด</th><th class="num">จำนวน</th><th></th></tr></thead><tbody id="expBody"></tbody></table></div>
+        <div class="scroll-x"><table class="list exptbl" style="margin-top:10px"><thead><tr><th>วันที่</th><th>หมวด</th><th>รายละเอียด</th><th class="num">จำนวน</th><th></th></tr></thead><tbody id="expBody"></tbody></table></div>
       </div>
       <div>
         <div class="card"><h2>รายจ่ายตามหมวด</h2><div id="dExpCats"></div></div>
@@ -173,9 +189,12 @@
   </section>
 
   <section id="tab-settings" class="hidden">
-    <div class="card" data-perm="users">
-      <h2 id="uTitle">เพิ่มผู้ใช้</h2>
-      <form id="userForm">
+    <div class="card setcard" data-perm="users">
+      <div class="sethead"><span class="setic" data-ic="users"></span><div><h2>ผู้ใช้งาน</h2><small>ใครเข้าระบบได้ และทำอะไรได้บ้าง</small></div>
+        <button class="btn brand sm" id="uAdd" type="button">+ เพิ่มผู้ใช้</button></div>
+      <div class="ulist" id="userBody"></div>
+      <form id="userForm" class="uform hidden">
+        <h3 id="uTitle">เพิ่มผู้ใช้</h3>
         <input type="hidden" id="uId">
         <div class="row">
           <div><label>ชื่อผู้ใช้ (ใช้ล็อกอิน)</label><input id="uUser" autocomplete="off" required></div>
@@ -188,13 +207,12 @@
         <div class="perm-grid" id="uPerms"></div>
         <div class="actions">
           <button class="btn brand" type="submit">บันทึก</button>
-          <button class="btn ghost" type="button" id="uCancel">ล้าง</button>
+          <button class="btn ghost" type="button" id="uCancel">ยกเลิก</button>
         </div>
       </form>
-      <div class="scroll-x"><table class="list" style="margin-top:10px"><tbody id="userBody"></tbody></table></div>
     </div>
-    <div class="card" data-perm="settings">
-      <h2>ข้อมูลร้าน (แสดงบนบิล)</h2>
+    <div class="card setcard" data-perm="settings">
+      <div class="sethead"><span class="setic" data-ic="receipt"></span><div><h2>ข้อมูลร้าน</h2><small>แสดงบนบิลและ QR พร้อมเพย์</small></div></div>
       <div class="row">
         <div><label>ชื่อร้าน</label><input id="sName"></div>
         <div><label>ที่อยู่</label><input id="sAddr"></div>
@@ -210,13 +228,45 @@
       </div>
       <div class="actions"><button class="btn brand" id="sSave">บันทึก</button></div>
     </div>
-    <div class="card" data-perm="settings">
-      <h2>จัดการโต๊ะ</h2>
+    <div class="card setcard" data-perm="settings">
+      <div class="sethead"><span class="setic" data-ic="qr"></span><div><h2>รับชำระเงิน</h2><small>บัญชีและ QR ร้าน แสดงให้ลูกค้าตอนจ่ายแบบโอน</small></div></div>
+      <div class="row">
+        <div><label>ธนาคาร</label><input id="sBank" placeholder="เช่น กสิกรไทย"></div>
+        <div><label>เลขบัญชี</label><input id="sAcct" inputmode="numeric" placeholder="xxx-x-xxxxx-x"></div>
+        <div><label>ชื่อบัญชี</label><input id="sOwner"></div>
+      </div>
+      <div class="row">
+        <div><label>รูป QR ร้าน (จากแอปธนาคาร) <small class="muted">ใช้เมื่อไม่ได้ตั้งเบอร์พร้อมเพย์</small></label>
+          <div class="shopqr"><span id="sQrPrev" class="shopqr-prev"></span>
+            <button class="btn ghost sm" id="sQrUp" type="button">อัปโหลดรูป QR</button><button class="btn danger sm hidden" id="sQrDel" type="button">ลบรูป</button></div></div>
+      </div>
+      <div class="actions"><button class="btn brand" id="sPaySave">บันทึก</button></div>
+    </div>
+    <div class="card setcard" data-perm="settings">
+      <div class="sethead"><span class="setic" data-ic="cloche"></span><div><h2>QR สั่งอาหาร &amp; ครัว</h2><small>ลูกค้าสแกน QR ที่โต๊ะแล้วสั่งเข้าครัวเอง</small></div>
+        <a class="btn ghost sm" href="kitchen.html" target="_blank" rel="noopener">เปิดจอครัว</a></div>
+      <div class="row">
+        <label class="perm" style="flex:1 1 100%"><input type="checkbox" id="sPin"><span><b>ลูกค้าต้องใส่รหัสโต๊ะ 4 หลัก</b><br><small class="muted">รหัสเปลี่ยนทุกครั้งที่เปิดโต๊ะ (ดูได้ที่หัวหน้าโต๊ะ) — คนที่ถ่ายรูป QR ไปจะสั่งแกล้งไม่ได้</small></span></label>
+      </div>
+      <div class="row">
+        <div style="flex:0 0 auto"><button class="btn brand" id="qrPrintAll" type="button">พิมพ์ QR ทุกโต๊ะ</button></div>
+        <div><select id="qrTable" aria-label="เลือกโต๊ะ"></select></div>
+        <div style="flex:0 0 auto" class="actions"><button class="btn ghost" id="qrPrintOne" type="button">พิมพ์โต๊ะนี้</button><button class="btn ghost" id="qrRegen" type="button">เปลี่ยน QR โต๊ะนี้</button></div>
+      </div>
+      <div class="row">
+        <div><label>เสียงแจ้งเตือนออเดอร์ใหม่ (จอครัว)</label><select id="sSound"></select></div>
+        <div style="flex:0 0 auto" class="actions"><button class="btn ghost" id="sndTest" type="button">▶ ฟังแบบจอครัว (3 ครั้ง)</button><button class="btn ghost" id="sndUp" type="button">+ อัปโหลดเสียง</button></div>
+      </div>
+      <div class="sndroom" id="sndRoom"></div>
+      <div class="sndlist tgrid" id="sndList"></div>
+    </div>
+    <div class="card setcard" data-perm="settings">
+      <div class="sethead"><span class="setic" data-ic="table"></span><div><h2>โต๊ะ</h2><small>เพิ่มโต๊ะ หรือกด ✕ เพื่อลบ (ลบได้เฉพาะโต๊ะว่าง)</small></div></div>
       <div class="row">
         <div><label>ชื่อโต๊ะใหม่</label><input id="tName" placeholder="เช่น 26, VIP1"></div>
         <div style="flex:0 0 auto"><button class="btn" id="tAdd">เพิ่มโต๊ะ</button></div>
       </div>
-      <table class="list" style="margin-top:10px"><tbody id="tblBody"></tbody></table>
+      <div class="tgrid" id="tblBody"></div>
     </div>
   </section>
 </main>
@@ -283,6 +333,7 @@
 <script src="js/press.js"></script>
 <script src="js/core.js"></script>
 <script src="js/render.js"></script>
+<script src="js/sounds.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/report.js"></script>
 <script src="js/dashboard.js"></script>
@@ -290,6 +341,8 @@
 <script src="js/table.js"></script>
 <script src="js/print.js"></script>
 <script src="js/btprint.js"></script>
+<script src="js/comfort.js"></script>
+<script src="js/back.js"></script>
 <script src="js/boot.js"></script>
 </body>
 </html>

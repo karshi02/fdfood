@@ -1,0 +1,51 @@
+/* guest order page (order.html): phone first, the shop's maroon and gold */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "IBM Plex Sans Thai", "Sarabun", Tahoma, sans-serif; background: radial-gradient(120% 80% at 50% 0%, #7a1522, #4a0a12 70%) fixed, #4a0a12;
+  color: #231c18; min-height: 100vh; padding-bottom: 96px; }
+.hidden { display: none !important; }
+.gh { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(60, 8, 15, .95); color: #fff4e6; border-bottom: 1px solid rgba(255, 220, 170, .22); }
+.glogo { width: 44px; height: 44px; border-radius: 50%; border: 2px solid #f2c45a; }
+.gh b { display: block; font-size: 20px; color: #f2c45a; }
+.gh span { font-size: 15px; }
+main { padding: 12px 16px; max-width: 900px; margin: 0 auto; }
+.gcats { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.gchip { flex: 0 0 auto; border: 1px solid rgba(255, 220, 170, .3); background: rgba(255, 255, 255, .08); color: #fff4e6; border-radius: 99px; padding: 8px 16px; font: inherit; font-size: 15px; cursor: pointer; }
+.gchip.on { background: linear-gradient(180deg, #ffe39a, #f2c45a 55%, #d99a2b); color: #5a2a05; border-color: transparent; font-weight: 600; }
+.ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 6px; }
+@media (max-width: 420px) { .ggrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.gdish { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 0 0 10px; border: 2px solid #f0c27a; border-radius: 16px; overflow: hidden;
+  background: #fffaf2; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.gdish.out { opacity: .5; }
+.gimg { display: grid; place-items: center; aspect-ratio: 4 / 3; background: #2a1512; font-size: 34px; }
+.gimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gname { padding: 0 10px; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.gprice { padding: 0 10px; font-size: 17px; font-weight: 700; color: #9b1c27; }
+.gplus, .gn { position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; font-weight: 700; color: #fff; background: #c52634; }
+.gn { background: #15803d; font-size: 17px; }
+.gnone { color: #f3d9c6; text-align: center; }
+.gdone { margin-top: 18px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 220, 170, .2); border-radius: 16px; padding: 12px 14px; color: #fff4e6; }
+.gdone h3 { margin: 0 0 6px; font-size: 17px; color: #f2c45a; }
+.gdone div { padding: 4px 0; } .gdone small { display: block; color: #f3d9c6; }
+.gmsg { margin: 40px auto; max-width: 420px; background: #fffaf2; border-radius: 18px; padding: 24px; text-align: center; }
+.gmsg b { font-size: 20px; } .gmsg p { color: #75695f; }
+.gmsg button, .gsend { border: 0; border-radius: 14px; padding: 14px 20px; font: inherit; font-size: 18px; font-weight: 700; color: #fff; background: linear-gradient(180deg, #c52634, #8f1520); cursor: pointer; }
+.gcartbar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 3; display: flex; align-items: center; gap: 12px; padding: 14px 18px; border: 0; border-radius: 18px;
+  background: linear-gradient(180deg, #15803d, #166534); color: #fff; font: inherit; font-size: 17px; font-weight: 600; box-shadow: 0 10px 24px rgba(0, 0, 0, .4); cursor: pointer; max-width: 876px; margin: 0 auto; }
+.gcartbar b { margin-left: auto; font-size: 19px; }
+.gbn { min-width: 32px; height: 32px; border-radius: 99px; background: rgba(255, 255, 255, .22); display: grid; place-items: center; }
+.gsheet { position: fixed; inset: 0; z-index: 4; background: rgba(15, 5, 5, .6); display: flex; align-items: flex-end; justify-content: center; }
+.gsheet-in { width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; background: #fffaf2; border-radius: 22px 22px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); }
+.gsh { display: flex; justify-content: space-between; align-items: center; font-size: 20px; margin-bottom: 6px; }
+.gsh button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #f1ece6; font-size: 18px; cursor: pointer; }
+.gline { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #ebe4dd; }
+.gline > div:first-child { flex: 1; min-width: 0; }
+.gline b { display: block; font-size: 17px; } .gline span { color: #9b1c27; font-weight: 600; }
+.gline input, .gpin input { width: 100%; margin-top: 6px; padding: 9px 11px; border: 1px solid #ebe4dd; border-radius: 10px; font: inherit; font-size: 16px; }
+.gqty { display: flex; align-items: center; gap: 6px; }
+.gqty button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: #c52634; color: #fff; font-size: 22px; cursor: pointer; }
+.gqty span { min-width: 28px; text-align: center; font-weight: 700; font-size: 18px; }
+.gpin { display: block; margin-top: 12px; font-weight: 600; }
+.gsum { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 0; font-size: 18px; } .gsum b { font-size: 24px; color: #9b1c27; }
+.gsend { width: 100%; } .gsend:disabled { opacity: .5; }
+.ghint { text-align: center; color: #75695f; font-size: 14px; margin: 10px 0 0; }
+.gtoast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 5; background: #231c18; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 16px; max-width: 90vw; text-align: center; }

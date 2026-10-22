@@ -1,0 +1,127 @@
+/* menu tab list, dashboard expenses on a phone, settings tab — easier to read on the dark page */
+
+/* menu tab: each dish is its own card on the dark page (like the table cards), group names in gold */
+.menulist { background: none; border: 0; box-shadow: none; padding: 0; }
+.menulist .menu-tools { background: var(--card); border-radius: 14px; padding: 10px; box-shadow: var(--shadow); }
+.menulist .menu-tools .perm { border: 0; padding: 4px 6px; background: none; }
+.menulist #menuCount { color: var(--on-dark-muted, var(--muted)); font-size: 14px; }
+.menulist .catbar { background: var(--card); border-radius: 14px; padding: 10px 12px; margin: 0 0 10px; }
+.menulist .mgroup { color: var(--gold, var(--brand)); font-size: 17px; font-weight: 700; border: 0; padding: 18px 4px 8px; }
+.menulist .mgroup .muted { color: var(--on-dark-muted, var(--muted)); font-weight: 500; }
+.menulist .mrow { background: var(--card); border: 0; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.menulist .mrow .mname { font-size: 17px; font-weight: 600; }
+.menulist .mrow .mprice { font-size: 18px; font-weight: 700; color: var(--brand); }
+.menulist .mrow.out { opacity: .75; }
+.menulist .mrow.editing { box-shadow: 0 0 0 3px var(--gold, var(--brand)); background: var(--card); }
+.menulist .mrow.wait { background: var(--warn-soft); }
+.menulist .mcatsel { margin-top: 6px; }
+.menulist > .muted { color: var(--on-dark-muted, var(--muted)); }
+
+/* dashboard expenses: always cards (the expense card is only half the screen wide on a tablet or computer):
+   date · category · amount, then the note on its own full-width line, then the buttons */
+.exptbl thead { display: none; }
+.exptbl tr[data-exp] { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "date cat amt" "note note note" "act act act";
+  column-gap: 10px; row-gap: 4px; align-items: baseline; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+.exptbl tr[data-exp]:last-child { border-bottom: 0; }
+.exptbl tr[data-exp] td { display: block; padding: 0; border: 0; min-width: 0; }
+.exptbl .xdate { grid-area: date; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.exptbl .xcat { grid-area: cat; font-weight: 600; }
+.exptbl .xamt { grid-area: amt; font-weight: 700; font-size: 17px; white-space: nowrap; }
+.exptbl .xnote { grid-area: note; color: var(--muted); font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.exptbl .xnote:empty { display: none; }
+.exptbl .xact { grid-area: act; text-align: right; white-space: nowrap; }
+
+/* settings tab */
+.setcard { padding: 0; overflow: hidden; }
+.sethead { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
+.sethead > div { flex: 1; min-width: 0; }
+.sethead h2 { margin: 0; font-size: 19px; }
+.sethead small { color: var(--muted); font-size: 14px; }
+.setic, .sethead > .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex: 0 0 auto; }
+.sethead > .ic { padding: 10px; }
+.setcard > .row, .setcard > .actions, .setcard > .tgrid, .setcard > .uform, .setcard > .ulist { margin: 0; padding: 14px 16px; }
+.setcard > .row + .row { padding-top: 0; }
+.setcard label { font-size: 14px; font-weight: 600; color: var(--ink); }
+
+.ulist { display: flex; flex-direction: column; gap: 10px; }
+.ucard { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 14px; }
+.uav { width: 42px; height: 42px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 18px; flex: 0 0 auto; }
+.uinfo { flex: 1; min-width: 0; }
+.uinfo b { font-size: 17px; }
+.uinfo .role { margin-left: 6px; font-size: 12px; vertical-align: 2px; }
+.uon { font-size: 13px; margin-top: 2px; }
+.uperms { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.uperms span { font-size: 13px; padding: 3px 10px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); }
+.uperms .base { color: var(--muted); }
+.uact { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+.uform { border-top: 1px solid var(--line); background: var(--bg); }
+.uform h3 { margin: 0 0 12px; font-size: 18px; }
+
+.tgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.tchip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); font-size: 15px; }
+.tchip.busy, .tchip.resv { border-color: var(--warn-line); background: var(--warn-soft); }
+.tchip button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: none; color: var(--danger); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.tchip button .ic { width: 16px; height: 16px; }
+.tchip button:disabled { color: var(--line-strong); cursor: default; }
+@media (max-width: 480px) {
+  .ucard { flex-wrap: wrap; }
+  .uact { flex-direction: row; width: 100%; justify-content: flex-end; }
+}
+
+/* tables tab: the summary cards are buttons that filter the grid */
+button.scard { font: inherit; text-align: left; cursor: pointer; width: 100%; }
+button.scard:active { transform: scale(.98); }
+.scard.on { box-shadow: 0 0 0 3px var(--gold, #f2c45a), 0 8px 20px rgba(0, 0, 0, .35); }
+.tfbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding: 10px 12px 10px 16px; border-radius: 14px;
+  background: var(--card); color: var(--ink); box-shadow: var(--shadow); font-size: 16px; }
+.tfbar button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 99px; padding: 8px 14px; background: var(--brand-soft); color: var(--brand-ink);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.tfbar button .ic { width: 16px; height: 16px; }
+.tempty { grid-column: 1 / -1; color: var(--on-dark-muted, var(--muted)); text-align: center; padding: 24px 0; }
+
+/* menu tab: dish photo square at the start of each row; tap to add / change, ✕ to remove */
+.menulist .mrow { grid-template-columns: 68px 1fr auto; grid-template-areas: "pic name price" "pic stock act"; row-gap: 8px; column-gap: 12px; }
+.menulist .mrow .mpic { grid-area: pic; } .menulist .mrow .mname { grid-area: name; } .menulist .mrow .mprice { grid-area: price; }
+.menulist .mrow .stock { grid-area: stock; justify-self: start; } .menulist .mrow .mact { grid-area: act; justify-self: end; }
+.mpic { position: relative; width: 68px; height: 68px; border-radius: 12px; overflow: hidden; background: #2a1512; color: #f1d6c0; display: grid; place-items: center; align-self: start; }
+.mpic > .ic, .mpicbtn > .ic { width: 30px; height: 30px; }
+.mpic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mpicbtn { width: 100%; height: 100%; border: 0; padding: 0; background: none; color: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.mpicbtn small { font-size: 11px; font-weight: 600; color: var(--gold, #f2c45a); }
+.mpic:not(.has) .mpicbtn { border: 2px dashed rgba(242, 196, 90, .5); border-radius: 12px; }
+.mpicdel { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: 0; padding: 0; background: rgba(0, 0, 0, .6); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.mpicdel .ic { width: 14px; height: 14px; }
+.menulist .tag { white-space: nowrap; }
+
+/* QR ordering on the staff side: the seating's PIN in the sheet header, dishes the guests ordered themselves */
+.mpin { margin-left: auto; padding: 6px 12px; border-radius: 12px; background: rgba(255, 255, 255, .12); color: var(--on-dark, #fff); font-size: 14px; white-space: nowrap; }
+.mpin b { font-size: 20px; letter-spacing: .12em; color: var(--gold, #f2c45a); }
+.tag.guest { background: #dcfce7; color: #166534; }
+
+/* payment: what the customer scans, the account, an optional slip photo */
+.mixok { width: 100%; margin-top: 10px; }
+.paypanel { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); text-align: center; }
+.pp-amt { font-size: 17px; margin-bottom: 8px; } .pp-amt b { font-size: 24px; color: var(--brand); }
+.shopqr-img { width: 220px; max-width: 100%; border-radius: 10px; background: #fff; padding: 6px; }
+.pp-acct { margin-top: 8px; font-size: 15px; font-weight: 600; }
+.pp-slip { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.pp-slip img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.paybar #payNoPrint { font-size: 15px; }
+
+/* settings: shop QR preview, sounds; gear menu link to the kitchen screen; slip in the sales bill sheet */
+.shopqr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.shopqr-prev img { width: 96px; height: 96px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+.sndlist { padding-top: 0 !important; }
+.sndlist:empty { display: none; }
+.acctlink { display: block; padding: 10px; border-radius: 8px; color: var(--ink); text-decoration: none; font-size: 15px; }
+.acctlink:hover { background: var(--bg); }
+.bvslip { margin-top: 14px; } .bvslip img { display: block; max-width: 100%; max-height: 360px; margin-top: 6px; border-radius: 10px; border: 1px solid var(--line); }
+html.eye .tag.guest { background: var(--ok-soft); color: var(--free); }
+
+/* settings: sound listening room */
+.sndroom { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; padding: 0 16px 14px; }
+.sndcard { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.sndcard.on { border-color: var(--brand); background: var(--brand-soft); }
+.sndcard > span { flex: 1; min-width: 0; font-size: 15px; }
+.sndplay { width: 40px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 50%; background: var(--brand); color: #fff; font-size: 15px; cursor: pointer; }
+.sndnow { font-size: 13px; color: var(--brand-ink); }

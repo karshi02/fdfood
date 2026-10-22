@@ -1,0 +1,26 @@
+/* opening animation: logo pops in inside a gold ring, the shop name rises, then the whole layer fades into the app */
+#splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(120% 80% at 50% 30%, #8a1a28, #4a0a12 60%, #2a0509); color: #fff4e6; transition: opacity .5s ease, visibility .5s; }
+#splash.done { opacity: 0; visibility: hidden; }
+.sp-box { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.sp-logo { position: relative; width: 132px; height: 132px; }
+.sp-logo img { position: relative; z-index: 1; width: 100%; height: 100%; border-radius: 50%; border: 4px solid #f2c45a; box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+  animation: sp-pop .7s cubic-bezier(.2, 1.4, .4, 1) both; }
+.sp-logo::before, .sp-logo::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid #f2c45a; opacity: 0; animation: sp-ring 1.6s ease-out .45s infinite; }
+.sp-logo::after { animation-delay: 1.25s; }
+.sp-name { font-size: 40px; font-weight: 700; color: #f2c45a; letter-spacing: .02em; animation: sp-rise .6s ease-out .35s both; }
+.sp-sub { font-size: 16px; color: #f3d9c6; animation: sp-rise .6s ease-out .55s both; }
+.sp-dots { display: flex; gap: 8px; margin-top: 6px; animation: sp-rise .4s ease-out .8s both; }
+.sp-dots i { width: 9px; height: 9px; border-radius: 50%; background: #f2c45a; animation: sp-dot 1s ease-in-out infinite; }
+.sp-dots i:nth-child(2) { animation-delay: .15s; } .sp-dots i:nth-child(3) { animation-delay: .3s; }
+/* embers drifting up behind the logo (the grill) */
+.sp-ember { position: absolute; bottom: -10px; width: 6px; height: 6px; border-radius: 50%; background: #ffb347; box-shadow: 0 0 10px 3px rgba(255, 140, 40, .6); opacity: 0; animation: sp-ember 3s linear infinite; }
+@keyframes sp-pop { 0% { transform: scale(.3) rotate(-25deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+@keyframes sp-ring { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes sp-rise { 0% { transform: translateY(16px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes sp-dot { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-6px); opacity: 1; } }
+@keyframes sp-ember { 0% { transform: translateY(0) translateX(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-105vh) translateX(var(--dx, 20px)); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sp-logo img, .sp-name, .sp-sub, .sp-dots { animation: none; }
+  .sp-logo::before, .sp-logo::after, .sp-dots i, .sp-ember { animation: none; display: none; }
+}

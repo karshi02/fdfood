@@ -16,4 +16,8 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
  && printf '<Directory /var/www/releases/>\n  Options FollowSymLinks\n  AllowOverride None\n  Require all granted\n</Directory>\n' > /etc/apache2/conf-enabled/zz-releases.conf
 
+# pages, scripts and styles: re-checked on every load (cheap 304 via ETag), so after a deploy nobody runs new HTML with old JS
+RUN a2enmod headers \
+ && printf '<FilesMatch "\\.(html|js|css|webmanifest)$">\n  Header set Cache-Control "no-cache"\n</FilesMatch>\n' > /etc/apache2/conf-enabled/zz-nocache.conf
+
 ENV TZ=Asia/Bangkok

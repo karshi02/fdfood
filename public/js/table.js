@@ -5,14 +5,15 @@
 // draft: the order sheet is showing for a table that isn't open yet; the first dish opens it on the server
 // opening: guests, dine-in/takeaway and (owner only) the open time, sent along with the first dish
 // orderAt / payAt: the owner's back-dated order and payment times; '' means now
-let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', xferIn = '', resvTime = '', draft = false;
+// slip: photo of the customer's transfer slip (data: URL), optional; mixQr: the mixed amounts were confirmed, show the QR
+let cur = null, curCat = '', curQ = '', payMethod = 'cash', cashIn = '', xferIn = '', resvTime = '', draft = false, slip = '', mixQr = false;
 let opening = { pax: '', takeaway: false, opened: '' }, orderAt = '', payAt = '';
 // datetime-local wants local time; toISOString() alone is UTC, 7 hours behind in Bangkok
 const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 // what every dish carries: it opens the table if it's the first one (the server ignores the opening fields otherwise)
 const dishExtra = () => ({ pax: Number(opening.pax) || null, takeaway: opening.takeaway ? 1 : 0, opened: isOwner() ? opening.opened : '', at: isOwner() ? orderAt : '' });
 function openTable(id, asDraft) {
-  cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; xferIn = ''; resvTime = ''; orderAt = ''; payAt = '';
+  cur = id; draft = !!asDraft; curCat = ''; curQ = ''; payMethod = 'cash'; cashIn = ''; xferIn = ''; resvTime = ''; orderAt = ''; payAt = ''; slip = ''; mixQr = false;
   const t = S.tables.find(x => x.id === id);
   opening = { pax: t && t.resv ? String(t.resv.pax || '') : '', takeaway: false, opened: '' };
   $('modal').classList.remove('hidden'); renderModal();
@@ -20,7 +21,7 @@ function openTable(id, asDraft) {
 function closeModal() {
   // leaving an open table with nothing ordered frees it again; quiet, since another device may have just added a dish
   const t = S.tables.find(x => x.id === cur);
-  if (t && t.status === 'busy' && !t.order.length) fetch('api.php?a=cancel_open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: t.id }) })
+  if (t && t.status === 'busy' && !t.order.length && !t.guestOpen) fetch('api.php?a=cancel_open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table: t.id }) })
     .then(r => r.json()).then(d => d.tables && apply(d)).catch(() => {});
   cur = null; draft = false; $('modal').classList.add('hidden');
 }
@@ -33,7 +34,8 @@ function renderModal() {
   const stLabel = t.status === 'free' ? 'ว่าง' : t.status === 'resv' ? 'จองไว้' : t.checked ? 'รอชำระ' : 'กำลังทาน';
   const stCls = t.status === 'busy' && t.checked ? 'checked' : t.status;
   $('mdTitle').innerHTML = `<button class="mback" id="mdBack" type="button" title="กลับ">${icon('back')}</button>
-    ${icon('table', 'mtico')}<span class="mtt"><b>โต๊ะ ${esc(t.name)}</b><small class="mstat ${stCls}"><i></i>${stLabel}</small></span>`;
+    ${icon('table', 'mtico')}<span class="mtt"><b>โต๊ะ ${esc(t.name)}</b><small class="mstat ${stCls}"><i></i>${stLabel}</small></span>
+    ${t.status === 'busy' && S.settings.qr_pin === '1' && t.pin ? `<span class="mpin" title="ให้ลูกค้าใส่ตอนสั่งผ่าน QR">รหัสโต๊ะ <b>${esc(t.pin)}</b></span>` : ''}`;
   $('mdTools').innerHTML = (t.status === 'busy' ? `<button class="mtool" id="move" type="button">${icon('swap')}<span>ย้าย / รวมโต๊ะ</span></button>` : '')
     + `<button class="mtool close" id="mdClose" type="button">${icon('close')}<span>ปิด</span></button>`;
   $('mdClose').onclick = closeModal;
@@ -53,7 +55,8 @@ function renderModal() {
         <button class="chip ${opening.takeaway ? '' : 'on'}" data-ta="0" type="button">ทานที่ร้าน</button>
         <button class="chip ${opening.takeaway ? 'on' : ''}" data-ta="1" type="button">สั่งกลับบ้าน</button>
       </div>
-      <div class="actions"><button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button></div>
+      <div class="actions"><button class="btn brand" id="open">เปิดโต๊ะ / เริ่มสั่งอาหาร</button>
+        <button class="btn ok" id="openQr" type="button">${icon('qr')}<span>เปิดให้ลูกค้าสแกนสั่ง</span></button></div>
     </div>
     <div class="card">
       <h2>${t.status === 'resv' ? 'ข้อมูลการจอง' : 'จองโต๊ะ'}</h2>
@@ -73,6 +76,14 @@ function renderModal() {
       if (await act('resv_save', { table: t.id, time: $('rTime').value.replace('T', ' '), pax: Number($('rPax').value) })) closeModal();
     };
     if ($('rCancel')) $('rCancel').onclick = async () => { if (confirm('ยกเลิกการจอง?') && await act('resv_cancel', { table: t.id })) { closeModal(); toast(`ยกเลิกการจองโต๊ะ ${t.name} แล้ว`); } };
+    // guests will order from the table QR: open the table right away (no dish needed)
+    $('openQr').onclick = async () => {
+      if (!(Number(opening.pax) >= 1)) { alert('ใส่จำนวนลูกค้า'); return $('oPax').focus(); }
+      if (await act('open_qr', { table: t.id, ...dishExtra() })) {
+        const nt = S.tables.find(x => x.id === t.id);
+        toast(`เปิดโต๊ะ ${t.name} แล้ว — ลูกค้าสแกน QR บนโต๊ะสั่งได้เลย` + (S.settings.qr_pin === '1' && nt && nt.pin ? ` · รหัสโต๊ะ ${nt.pin}` : ''));
+      }
+    };
     $('open').onclick = () => {
       if (!(Number(opening.pax) >= 1)) { alert('ใส่จำนวนลูกค้า'); return $('oPax').focus(); }
       draft = true; renderModal();
@@ -122,9 +133,9 @@ function renderModal() {
         ${isOwner() ? `<div class="ownat"><label>เวลาสั่ง <small class="muted">(เว้นว่าง = ตอนนี้)</small></label>${calField('orderAt', orderAt, { time: true, empty: 'เวลาตอนนี้' })}</div>` : ''}
         <div class="osec-b">
           ${t.order.map(i => `<div class="oi">
-            ${thumb(null, catOf(i.menuId, i.name), 'oimg')}
+            ${thumb((S.menu.find(m => m.id === i.menuId) || {}).image, catOf(i.menuId, i.name), 'oimg')}
             <div class="oinfo">
-              <div class="oname">${esc(i.name)}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}${ids.has(i.menuId)
+              <div class="oname">${esc(i.name)}${i.guest ? '<span class="tag guest">ลูกค้าสั่ง</span>' : ''}${i.qty > i.sent ? `<span class="tag">ใหม่ ${i.qty - i.sent}</span>` : ''}${ids.has(i.menuId)
                 ? `<span class="tag wait">รออนุมัติราคา</span>${can('menu') ? ` <button class="note" data-ok="${i.menuId}">อนุมัติ</button>` : ''}` : ''}</div>
               <div class="oprice">฿${baht(i.price)}</div>
               <button class="note" data-note="${i.id}">${icon('edit')}${i.note ? esc(i.note) : '+ หมายเหตุ'}</button>
@@ -163,14 +174,16 @@ function renderModal() {
               <div><label>รับเงิน (บาท)</label><input id="cash" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" value="${esc(cashIn)}"></div>
               <div><label>เงินทอน</label><input id="change" readonly placeholder="0.00"></div></div>
             <div class="cashq">${[100, 500, 1000].map(n => `<button class="chip" data-cash="${n}" type="button">${n.toLocaleString('th-TH')}</button>`).join('')}<button class="chip exact" data-cash="${payMethod === 'cash' ? c.total : ''}" type="button">พอดี</button></div>` : ''}
-          ${payMethod === 'transfer' ? (S.settings.promptpay ? `<div class="qr">${qrSvg(c.total) || '<p class="muted">สร้าง QR ไม่ได้ (ต้องต่ออินเทอร์เน็ต)</p>'}<div class="muted">พร้อมเพย์ ${esc(S.settings.promptpay)} · ฿${baht(c.total)}</div></div>` : '<p class="muted">โอนเข้าบัญชีร้าน · ตั้งเบอร์พร้อมเพย์ในแท็บ "ตั้งค่า" เพื่อให้ขึ้น QR ให้ลูกค้าสแกน</p>') : ''}
+          ${payMethod === 'mixed' && !mixQr ? `<button class="btn brand mixok" id="mixOk" type="button">ยืนยันยอด แล้วแสดง QR ให้ลูกค้าโอน</button>` : ''}
+          ${payMethod === 'transfer' || (payMethod === 'mixed' && mixQr) ? payPanel(payMethod === 'mixed' ? r2(Number(xferIn) || 0) : c.total) : ''}
           ${has || t.status !== 'busy' ? '' : `<button class="voidrow" id="cancelOpen" type="button">${icon('close')}<span>ยกเลิกเปิดโต๊ะ</span>${icon('next')}</button>`}
           ${has && can('void') ? `<button class="voidrow" id="voidTable" type="button">${icon('receipt')}<span>ยกเลิกบิล / ปิดโต๊ะ (ไม่เก็บเงิน)</span>${icon('next')}</button>` : ''}
         </div>
       </section>
 
       <div class="paybar">
-        <button class="btn ok lg" id="pay" ${billable ? '' : 'disabled'}>${icon('printer')}<span>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</span></button>
+        <button class="btn ok lg" id="pay" ${billable && (payMethod !== 'mixed' || mixQr) ? '' : 'disabled'}>${icon('printer')}<span>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</span></button>
+        <button class="btn ghost lg" id="payNoPrint" ${billable && (payMethod !== 'mixed' || mixQr) ? '' : 'disabled'}>${icon('check')}<span>ชำระ + ปิดโต๊ะ (ไม่พิมพ์บิล)</span></button>
         <button class="btn gold lg" id="preview" ${billable ? '' : 'disabled'}>${icon('printer')}<span>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</span></button>
       </div>
     </div></div>
@@ -182,7 +195,17 @@ function renderModal() {
   }
 
   b.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => { curCat = x.dataset.cat; renderModal(); });
-  b.querySelectorAll('[data-m]').forEach(x => x.onclick = () => { payMethod = x.dataset.m; renderModal(); });
+  b.querySelectorAll('[data-m]').forEach(x => x.onclick = () => { payMethod = x.dataset.m; mixQr = false; renderModal(); });
+  if ($('mixOk')) $('mixOk').onclick = () => {
+    const x = Number($('xfer').value) || 0;
+    if (!(x > 0 && x < c.total)) return alert('ใส่ยอดโอนมากกว่า 0 และน้อยกว่ายอดสุทธิ (ถ้าโอนทั้งหมด เลือก "โอน")');
+    xferIn = $('xfer').value; mixQr = true; renderModal();
+  };
+  if ($('slipBtn')) $('slipBtn').onclick = async () => {
+    const f = await pickFile('image/*'); if (!f) return;
+    try { slip = await shrinkImage(f, 1000); renderModal(); } catch { alert('เปิดรูปนี้ไม่ได้'); }
+  };
+  if ($('slipDel')) $('slipDel').onclick = () => { slip = ''; renderModal(); };
   b.querySelectorAll('[data-add]').forEach(x => x.onclick = () => act('item_add', { table: t.id, menu: Number(x.dataset.add), ...dishExtra() }));
   if ($('orderAt')) $('orderAt').oninput = e => { orderAt = e.target.value; };
   if ($('payAt')) $('payAt').oninput = e => { payAt = e.target.value; };
@@ -236,7 +259,7 @@ function renderModal() {
       $('change').value = cashIn ? (v >= due ? baht(v - due) : 'เงินไม่พอ') : '';
     };
     $('cash').oninput = upd;
-    if ($('xfer')) $('xfer').oninput = upd;
+    if ($('xfer')) $('xfer').oninput = () => { if (mixQr) { mixQr = false; xferIn = $('xfer').value; return renderModal(); } upd(); };
     b.querySelectorAll('[data-cash]').forEach(x => x.onclick = () => { $('cash').value = x.dataset.cash || Math.max(0, cashDue()); upd(); });
     upd();
   }
@@ -248,16 +271,18 @@ function renderModal() {
     printBill({ no: null, table: t.name, date: new Date(), items: t.order, ...c,
     servicePct: S.settings.service, vatPct: S.settings.vat, cash: null }, true);
   };
-  $('pay').onclick = async () => {
+  const pay = async print => {
     const cash = $('cash') && $('cash').value ? Number($('cash').value) : null;
     const transfer = payMethod === 'mixed' ? Number($('xfer').value) || 0 : null;
     if (transfer !== null && !(transfer > 0 && transfer < c.total)) return alert('ใส่ยอดโอนมากกว่า 0 และน้อยกว่ายอดสุทธิ (ถ้าโอนทั้งหมด เลือก "โอน")');
     if (cash !== null && cash < cashDue()) return alert('รับเงินไม่พอ');
     if (pendingQty && !confirm('มีรายการยังไม่ส่งครัว — ชำระต่อเลย?')) return;
     if (!confirm(`ยืนยันชำระ ${transfer !== null ? `เงินสด ฿${baht(cashDue())} + โอน ฿${baht(transfer)} รวม` : METHODS[payMethod]} ฿${baht(c.total)}${payAt ? ' ลงวันที่ ' + payAt.replace('T', ' ') : ''} และปิดโต๊ะ?`)) return;
-    const d = await act('pay', { table: t.id, method: payMethod, cash, transfer, expect: c.total, date: isOwner() ? payAt : '' });
-    if (d) { closeModal(); toast(`ชำระเงินแล้ว · ปิดโต๊ะ ${t.name}`); printBill(d.bill); } else act('state');
+    const d = await act('pay', { table: t.id, method: payMethod, cash, transfer, expect: c.total, date: isOwner() ? payAt : '', slip: payMethod === 'cash' ? '' : slip });
+    if (d) { closeModal(); toast(`ชำระเงินแล้ว · ปิดโต๊ะ ${t.name}`); if (print) printBill(d.bill); } else act('state');
   };
+  $('pay').onclick = () => pay(true);
+  $('payNoPrint').onclick = () => pay(false);
   if ($('cancelOpen')) $('cancelOpen').onclick = async () => { if (await act('cancel_open', { table: t.id })) { closeModal(); toast(`ยกเลิกเปิดโต๊ะ ${t.name} แล้ว`); } };
   if ($('voidTable')) $('voidTable').onclick = async () => {
     if (!confirm(`ยกเลิกบิลโต๊ะ ${t.name} ฿${baht(c.total)} และปิดโต๊ะโดยไม่เก็บเงิน?\nรายการจะถูกบันทึกเป็น "บิลยกเลิก" ในยอดขาย`)) return;
@@ -273,4 +298,21 @@ function moveTable(t) {
   if (!to) return alert('ไม่พบโต๊ะ หรือโต๊ะนั้นถูกจองไว้');
   if (to.status === 'busy' && !confirm(`รวมรายการโต๊ะ ${t.name} เข้าโต๊ะ ${to.name}?`)) return;
   act('move', { from: t.id, to: to.id }).then(d => { if (d) { cur = to.id; renderModal(); } });
+}
+
+// what the customer scans to pay `amount`: PromptPay with the amount filled in when the shop set a number, otherwise the
+// shop's own QR picture; the account below it; then an optional photo of their slip
+function payPanel(amount) {
+  const st = S.settings, img = (S.files || []).find(f => f.k === 'shop_qr');
+  const pp = st.promptpay ? qrSvg(amount) : '';
+  const acct = [st.bank_name, st.bank_acct, st.bank_owner].filter(Boolean).map(esc).join(' · ');
+  return `<div class="paypanel">
+    <div class="pp-amt">ให้ลูกค้าโอน <b>฿${baht(amount)}</b></div>
+    ${pp ? `<div class="qr">${pp}<div class="muted">พร้อมเพย์ ${esc(st.promptpay)}</div></div>`
+      : img ? `<div class="qr"><img src="${esc(img.url)}" alt="QR ร้าน" class="shopqr-img"></div>`
+      : '<p class="muted">ยังไม่มี QR ร้าน — ตั้งเบอร์พร้อมเพย์ หรืออัปโหลดรูป QR ในแท็บ "ตั้งค่า"</p>'}
+    ${acct ? `<div class="pp-acct">${acct}</div>` : ''}
+    <div class="pp-slip">${slip ? `<img src="${slip}" alt="สลิป"><span>แนบสลิปแล้ว</span><button class="btn ghost sm" id="slipDel" type="button">ลบ</button>`
+      : `<button class="btn soft" id="slipBtn" type="button">📷 ถ่ายรูปสลิป (ไม่บังคับ)</button>`}</div>
+  </div>`;
 }

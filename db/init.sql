@@ -48,7 +48,11 @@ CREATE TABLE dining_tables (
   checked_at DATETIME NULL,
   checked_total DECIMAL(10,2) NULL,
   pax INT NULL,
-  takeaway TINYINT(1) NOT NULL DEFAULT 0
+  takeaway TINYINT(1) NOT NULL DEFAULT 0,
+  qr_token CHAR(16) NULL UNIQUE,
+  pin CHAR(4) NULL,
+  guest_open TINYINT(1) NOT NULL DEFAULT 0,
+  guest_last DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE order_items (
@@ -62,6 +66,8 @@ CREATE TABLE order_items (
   note VARCHAR(200) NOT NULL DEFAULT '',
   created_by INT NULL,
   ordered_at DATETIME NULL,
+  by_guest TINYINT(1) NOT NULL DEFAULT 0,
+  done INT NOT NULL DEFAULT 0,
   INDEX (table_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -98,6 +104,29 @@ CREATE TABLE bill_items (
   note VARCHAR(200) NOT NULL DEFAULT '',
   ordered_at DATETIME NULL,
   INDEX (bill_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS files (
+  k VARCHAR(40) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL DEFAULT '',
+  data MEDIUMBLOB NOT NULL,
+  mime VARCHAR(40) NOT NULL,
+  ver INT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS bill_slips (
+  bill_id INT PRIMARY KEY,
+  data MEDIUMBLOB NOT NULL,
+  mime VARCHAR(20) NOT NULL,
+  created_at DATETIME NOT NULL,
+  INDEX (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS menu_images (
+  menu_id INT PRIMARY KEY,
+  data MEDIUMBLOB NOT NULL,
+  mime VARCHAR(20) NOT NULL,
+  ver INT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS expenses (

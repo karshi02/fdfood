@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จอครัว · โคขุน POS</title>
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png?v=2">
+<meta name="theme-color" content="#1b0d0c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/kitchen.css">
+</head>
+<body>
+<header class="kh">
+  <b id="kShop">จอครัว</b>
+  <span id="kClock"></span>
+  <span id="kSync" class="ksync">● กำลังเชื่อมต่อ</span>
+  <button id="kMute" type="button" class="kbtn">🔔 เสียงเปิด</button>
+  <a href="./" class="kbtn">กลับหน้าหลัก</a>
+</header>
+<div id="kAlert" class="kalert hidden" role="button" tabindex="0">🔔 ออเดอร์ใหม่! แตะเพื่อรับทราบ</div>
+<main id="kBoard" class="kboard"></main>
+<div id="kStart" class="kstart">
+  <div><b>จอครัว</b><p>แตะปุ่มด้านล่างเพื่อเปิดเสียงแจ้งเตือน<br>(เบราว์เซอร์ต้องให้แตะก่อนครั้งหนึ่งถึงจะเล่นเสียงได้)</p>
+  <button id="kGo" type="button">เริ่มรับออเดอร์</button></div>
+</div>
+<script src="js/sounds.js"></script>
+<script src="js/kitchen.js"></script>
+</body>
+</html>

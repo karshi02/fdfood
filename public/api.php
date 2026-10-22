@@ -44,8 +44,9 @@ function tx(callable $f): mixed {
 }
 
 // upgrade databases created by an older init.sql (it only runs once); the schema number keeps this off the hot path
-const SCHEMA = 11;
-if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn() < SCHEMA) {
+const SCHEMA = 13;
+$fromSchema = (int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColumn();
+if ($fromSchema < SCHEMA) {
     // last request time per user, for "who's online" in the staff list
     if (!q("SHOW COLUMNS FROM users LIKE 'last_seen'")->fetch()) {
         try { q('ALTER TABLE users ADD COLUMN last_seen DATETIME NULL'); }
@@ -103,9 +104,12 @@ if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColu
         try { q('ALTER TABLE bill_items ADD COLUMN ordered_at DATETIME NULL'); }
         catch (PDOException) {} // another request added it first
     }
-    // tables opened by mistake back when opening didn't need a dish: free them (a booking stays booked)
-    q("UPDATE dining_tables SET status = IF(resv_name IS NULL, 'free', 'resv'), opened_at = NULL, checked_at = NULL, checked_total = NULL
-       WHERE status = 'busy' AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.table_id = dining_tables.id)");
+    // tables opened by mistake back when opening didn't need a dish: free them (a booking stays booked).
+    // Only once, when coming from before schema 10: a table opened for QR ordering is now open on purpose with no dish yet
+    if ($fromSchema < 10) {
+        q("UPDATE dining_tables SET status = IF(resv_name IS NULL, 'free', 'resv'), opened_at = NULL, checked_at = NULL, checked_total = NULL
+           WHERE status = 'busy' AND NOT EXISTS (SELECT 1 FROM order_items i WHERE i.table_id = dining_tables.id)");
+    }
     q("UPDATE meta SET v = v + 1 WHERE k = 'ver'");
     // one bill paid partly in cash and partly by transfer: method 'mixed', transfer_amt = the transferred part
     if (!str_contains((string)q("SHOW COLUMNS FROM bills LIKE 'method'")->fetch()['Type'], "'mixed'")) {
@@ -115,6 +119,28 @@ if ((int)q("SELECT COALESCE(MAX(v), 0) FROM meta WHERE k = 'schema'")->fetchColu
         try { q('ALTER TABLE bills ADD COLUMN transfer_amt DECIMAL(10,2) NULL'); }
         catch (PDOException) {} // another request added it first
     }
+    // dish photos: kept in the database (small JPEGs resized on the phone) so backups include them and deploys never touch them
+    q("CREATE TABLE IF NOT EXISTS menu_images (
+      menu_id INT PRIMARY KEY, data MEDIUMBLOB NOT NULL, mime VARCHAR(20) NOT NULL, ver INT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    // QR ordering: a fixed token per table (the sticker), a 4-digit PIN per seating, tables opened for guests to order,
+    // and guest dishes go straight to the kitchen screen, which marks them done
+    if (!q("SHOW COLUMNS FROM dining_tables LIKE 'qr_token'")->fetch()) {
+        try { q('ALTER TABLE dining_tables ADD COLUMN qr_token CHAR(16) NULL UNIQUE, ADD COLUMN pin CHAR(4) NULL, ADD COLUMN guest_open TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN guest_last DATETIME NULL'); }
+        catch (PDOException) {} // another request added it first
+    }
+    foreach (q('SELECT id FROM dining_tables WHERE qr_token IS NULL')->fetchAll() as $t) q('UPDATE dining_tables SET qr_token = ? WHERE id = ? AND qr_token IS NULL', [bin2hex(random_bytes(8)), $t['id']]);
+    if (!q("SHOW COLUMNS FROM order_items LIKE 'by_guest'")->fetch()) {
+        try { q('ALTER TABLE order_items ADD COLUMN by_guest TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN done INT NOT NULL DEFAULT 0'); }
+        catch (PDOException) {} // another request added it first
+    }
+    // shop QR picture and kitchen alert sounds; transfer slips kept with their bill for 90 days
+    q("CREATE TABLE IF NOT EXISTS files (
+      k VARCHAR(40) PRIMARY KEY, name VARCHAR(100) NOT NULL DEFAULT '', data MEDIUMBLOB NOT NULL, mime VARCHAR(40) NOT NULL, ver INT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    q("CREATE TABLE IF NOT EXISTS bill_slips (
+      bill_id INT PRIMARY KEY, data MEDIUMBLOB NOT NULL, mime VARCHAR(20) NOT NULL, created_at DATETIME NOT NULL, INDEX (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = GREATEST(v, VALUES(v))", [SCHEMA]);
 }
 
@@ -191,7 +217,7 @@ function state(): array {
     $byTable = [];
     foreach (q('SELECT * FROM order_items ORDER BY id') as $i) {
         $byTable[$i['table_id']][] = ['id' => (int)$i['id'], 'menuId' => $i['menu_id'] === null ? null : (int)$i['menu_id'],
-            'name' => $i['name'], 'price' => (float)$i['price'], 'qty' => (int)$i['qty'], 'sent' => (int)$i['sent'], 'note' => $i['note'], 'at' => $i['ordered_at']];
+            'name' => $i['name'], 'price' => (float)$i['price'], 'qty' => (int)$i['qty'], 'sent' => (int)$i['sent'], 'note' => $i['note'], 'at' => $i['ordered_at'], 'guest' => (bool)$i['by_guest'], 'done' => (int)$i['done']];
     }
     $tables = [];
     foreach (q('SELECT * FROM dining_tables ORDER BY sort, id') as $t) {
@@ -200,14 +226,19 @@ function state(): array {
             'openedAt' => $t['opened_at'], 'pax' => $t['pax'] === null ? null : (int)$t['pax'], 'takeaway' => (bool)$t['takeaway'],
             'discount' => $t['disc_type'] ? ['type' => $t['disc_type'], 'value' => (float)$t['disc_value']] : null,
             'checked' => $t['checked_at'] === null ? null : ['at' => $t['checked_at'], 'total' => (float)$t['checked_total']],
+            'qr' => $t['qr_token'], 'pin' => $t['pin'], 'guestOpen' => (bool)$t['guest_open'],
             'order' => $byTable[$t['id']] ?? []];
     }
     $menu = [];
-    foreach (q('SELECT m.*, u.name AS by_name FROM menu m LEFT JOIN users u ON u.id = m.created_by WHERE m.active = 1 ORDER BY m.id') as $m) {
+    // the photo URL carries its version, so browsers cache it forever and fetch again only after a change
+    foreach (q('SELECT m.*, u.name AS by_name, i.ver AS img_ver FROM menu m LEFT JOIN users u ON u.id = m.created_by LEFT JOIN menu_images i ON i.menu_id = m.id WHERE m.active = 1 ORDER BY m.id') as $m) {
         $menu[] = ['id' => (int)$m['id'], 'name' => $m['name'], 'price' => (float)$m['price'], 'cat' => $m['cat'], 'out' => (bool)$m['out_of_stock'],
-            'pending' => (bool)$m['pending'], 'by' => $m['pending'] ? (string)$m['by_name'] : ''];
+            'pending' => (bool)$m['pending'], 'by' => $m['pending'] ? (string)$m['by_name'] : '',
+            'image' => $m['img_ver'] === null ? null : "api.php?a=img&id={$m['id']}&v={$m['img_ver']}"];
     }
-    return ['ver' => ver(), 'me' => $me, 'permList' => PERMS, 'settings' => settings(), 'menu' => $menu, 'tables' => $tables];
+    $files = array_map(fn($f) => ['k' => $f['k'], 'name' => $f['name'], 'url' => "api.php?a=file&k={$f['k']}&v={$f['ver']}"],
+        q('SELECT k, name, ver FROM files ORDER BY k')->fetchAll());
+    return ['ver' => ver(), 'me' => $me, 'permList' => PERMS, 'settings' => settings(), 'menu' => $menu, 'tables' => $tables, 'files' => $files];
 }
 
 function bill_out(array $b): array {
@@ -218,6 +249,7 @@ function bill_out(array $b): array {
         'servicePct' => (float)$b['service_pct'], 'vatPct' => (float)$b['vat_pct'], 'method' => $b['method'],
         'transfer' => $b['transfer_amt'] === null ? null : (float)$b['transfer_amt'],
         'cash' => $b['cash'] === null ? null : (float)$b['cash'], 'change' => $b['change_amt'] === null ? null : (float)$b['change_amt'],
+        'slip' => q('SELECT 1 FROM bill_slips WHERE bill_id = ?', [$b['id']])->fetchColumn() ? "api.php?a=slip&no={$b['id']}" : null,
         'void' => (bool)$b['void'], 'cashier' => $b['cashier'] ?? '', 'pax' => $b['pax'] === null ? null : (int)$b['pax'], 'takeaway' => (bool)$b['takeaway']];
 }
 
@@ -237,9 +269,25 @@ function when(array $in, string $k): string {
 function open_on_first_dish(array $t, array $in): void {
     if ($t['status'] === 'busy') return;
     $pax = (int)($in['pax'] ?? $t['resv_pax'] ?? 0);
-    q("UPDATE dining_tables SET status = 'busy', opened_at = ?, pax = ?, takeaway = ? WHERE id = ?",
-        [when($in, 'opened'), $pax > 0 ? min(999, $pax) : null, empty($in['takeaway']) ? 0 : 1, $t['id']]);
+    q("UPDATE dining_tables SET status = 'busy', opened_at = ?, pax = ?, takeaway = ?, pin = ? WHERE id = ?",
+        [when($in, 'opened'), $pax > 0 ? min(999, $pax) : null, empty($in['takeaway']) ? 0 : 1, new_pin(), $t['id']]);
 }
+function new_pin(): string { return str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT); }
+// a data: URL from the browser -> [bytes, mime]; images are checked by their content, not by what the browser claims
+function data_url(string $raw, array $types, int $max): array {
+    if (!preg_match('#^data:([a-z]+/[a-z0-9.+-]+);base64,#', $raw, $m) || !in_array($m[1], $types, true)) fail('ชนิดไฟล์ไม่รองรับ');
+    $bin = base64_decode(substr($raw, strlen($m[0])), true);
+    if ($bin === false || $bin === '') fail('ไฟล์เสีย');
+    if (strlen($bin) > $max) fail('ไฟล์ใหญ่เกินไป (ไม่เกิน ' . round($max / 1000) . ' KB)');
+    if (str_starts_with($m[1], 'image/')) {
+        $info = @getimagesizefromstring($bin);
+        if (!$info || !in_array($info['mime'], $types, true)) fail('ไฟล์รูปไม่ถูกต้อง');
+        return [$bin, $info['mime']];
+    }
+    return [$bin, $m[1]];
+}
+const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const SOUND_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/webm'];
 // lock the table first, then the item: same order as pay/kitchen, so no deadlock
 function lock_item(int $id): array {
     $gone = 'ไม่พบรายการ (อาจถูกแก้จากเครื่องอื่น)';
@@ -266,7 +314,7 @@ function approve_menu(int $id, float $price): void {
     q('UPDATE menu SET price = ?, pending = 0 WHERE id = ?', [$price, $id]);
     q('UPDATE order_items SET price = ? WHERE menu_id = ?', [$price, $id]);
 }
-const CLEAR_TABLE ="status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, pax = NULL, takeaway = 0, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
+const CLEAR_TABLE ="status = 'free', resv_name = NULL, resv_phone = NULL, resv_time = NULL, resv_pax = NULL, opened_at = NULL, pax = NULL, takeaway = 0, pin = NULL, guest_open = 0, disc_type = NULL, disc_value = NULL, checked_at = NULL, checked_total = NULL";
 // in production only nginx can reach the app (it listens on 127.0.0.1), so trust its X-Real-IP when the peer is a private address
 function client_ip(): string {
     $peer = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -275,6 +323,13 @@ function client_ip(): string {
     return !$public && filter_var($real, FILTER_VALIDATE_IP) ? $real : $peer;
 }
 function str(array $in, string $k, int $max = 150): string { return mb_substr(trim((string)($in[$k] ?? '')), 0, $max); }
+// the table behind a QR sticker (?t= or "t" in the body)
+function guest_table(): array {
+    global $in;
+    $tok = (string)($_GET['t'] ?? $in['t'] ?? '');
+    if (!preg_match('/^[0-9a-f]{16}$/', $tok)) fail('QR ไม่ถูกต้อง', 404);
+    return q('SELECT * FROM dining_tables WHERE qr_token = ?', [$tok])->fetch() ?: fail('QR นี้ใช้ไม่ได้แล้ว — สแกน QR บนโต๊ะใหม่', 404);
+}
 
 $a = $_GET['a'] ?? '';
 $in = [];
@@ -282,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!str_starts_with($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')) out(['error' => 'bad request'], 400);
     $in = json_decode(file_get_contents('php://input'), true);
     if (!is_array($in)) $in = [];
-} elseif (!in_array($a, ['state', 'ver', 'bills', 'dash', 'users', 'me'], true)) {
+} elseif (!in_array($a, ['state', 'ver', 'bills', 'dash', 'users', 'me', 'img', 'file', 'slip', 'g_menu'], true)) {
     out(['error' => 'ต้องใช้ POST'], 405);
 }
 
@@ -363,12 +418,22 @@ try {
             if ($t['status'] !== 'busy') q("UPDATE dining_tables SET status = 'busy', opened_at = ? WHERE id = ?", [now(), $t['id']]);
         });
         break;
+    case 'open_qr':
+        // seat guests who will order by scanning the table's QR: the table opens now, without a dish
+        need();
+        tx(function () use ($in) {
+            $t = lock_table((int)($in['table'] ?? 0));
+            if ($t['status'] === 'busy') fail('โต๊ะเปิดอยู่แล้ว');
+            open_on_first_dish($t, $in);
+            q('UPDATE dining_tables SET guest_open = 1 WHERE id = ?', [$t['id']]);
+        });
+        break;
     case 'cancel_open':
         need();
         tx(function () use ($in) {
             $t = lock_table((int)($in['table'] ?? 0));
             if (q('SELECT COUNT(*) FROM order_items WHERE table_id = ?', [$t['id']])->fetchColumn()) fail('โต๊ะมีรายการอาหารแล้ว');
-            q('UPDATE dining_tables SET status = ?, opened_at = NULL, pax = NULL, takeaway = 0 WHERE id = ?', [$t['resv_name'] === null ? 'free' : 'resv', $t['id']]);
+            q('UPDATE dining_tables SET status = ?, opened_at = NULL, pax = NULL, takeaway = 0, pin = NULL, guest_open = 0 WHERE id = ?', [$t['resv_name'] === null ? 'free' : 'resv', $t['id']]);
         });
         break;
     case 'move':
@@ -388,8 +453,8 @@ try {
             if ($t['status'] === 'busy') {
                 q('UPDATE dining_tables SET opened_at = LEAST(opened_at, ?), pax = NULLIF(IFNULL(pax, 0) + ?, 0) WHERE id = ?', [$f['opened_at'], (int)$f['pax'], $to]);
             } else {
-                q("UPDATE dining_tables SET status = 'busy', resv_name = ?, resv_phone = ?, resv_time = ?, resv_pax = ?, opened_at = ?, disc_type = ?, disc_value = ?, checked_at = ?, checked_total = ?, pax = ?, takeaway = ? WHERE id = ?",
-                    [$f['resv_name'], $f['resv_phone'], $f['resv_time'], $f['resv_pax'], $f['opened_at'], $f['disc_type'], $f['disc_value'], $f['checked_at'], $f['checked_total'], $f['pax'], $f['takeaway'], $to]);
+                q("UPDATE dining_tables SET status = 'busy', resv_name = ?, resv_phone = ?, resv_time = ?, resv_pax = ?, opened_at = ?, disc_type = ?, disc_value = ?, checked_at = ?, checked_total = ?, pax = ?, takeaway = ?, pin = ?, guest_open = ? WHERE id = ?",
+                    [$f['resv_name'], $f['resv_phone'], $f['resv_time'], $f['resv_pax'], $f['opened_at'], $f['disc_type'], $f['disc_value'], $f['checked_at'], $f['checked_total'], $f['pax'], $f['takeaway'], $f['pin'], $f['guest_open'], $to]);
             }
             q('UPDATE dining_tables SET ' . CLEAR_TABLE . ' WHERE id = ?', [$from]);
         });
@@ -418,7 +483,7 @@ try {
             if ($d < 0 && $i['qty'] <= $i['sent'] && !can('reduce')) fail('รายการนี้ส่งครัวแล้ว — ต้องมีสิทธิ์ "ลดรายการที่ส่งครัวแล้ว"');
             $qty = $i['qty'] + $d;
             if ($qty <= 0) q('DELETE FROM order_items WHERE id = ?', [$i['id']]);
-            else q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?) WHERE id = ?', [$qty, $qty, $i['id']]);
+            else q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?), done = LEAST(done, ?) WHERE id = ?', [$qty, $qty, $qty, $i['id']]);
         });
         break;
     case 'item_note':
@@ -431,9 +496,11 @@ try {
                 $qty = $i['qty'] - 1;
                 // take an unsent portion if there is one; if every portion already went to the kitchen, the split-off one counts as sent too
                 $splitSent = $i['sent'] >= $i['qty'] ? 1 : 0;
-                q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?) WHERE id = ?', [$qty, $qty, $i['id']]);
-                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by, ordered_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)',
-                    [$i['table_id'], $i['menu_id'], $i['name'], $i['price'], $splitSent, $note, $i['created_by'], $i['ordered_at']]);
+                // the kitchen's "cooked" count stays the same in total, so the split doesn't look like a new order there
+                $splitDone = min($splitSent, max(0, (int)$i['done'] - $qty));
+                q('UPDATE order_items SET qty = ?, sent = LEAST(sent, ?), done = LEAST(done, ?) WHERE id = ?', [$qty, $qty, $qty, $i['id']]);
+                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, created_by, ordered_at, by_guest, done) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)',
+                    [$i['table_id'], $i['menu_id'], $i['name'], $i['price'], $splitSent, $note, $i['created_by'], $i['ordered_at'], $i['by_guest'], $splitDone]);
             } else {
                 q('UPDATE order_items SET note = ? WHERE id = ?', [$note, $i['id']]);
             }
@@ -446,6 +513,15 @@ try {
             $p = q('SELECT name, qty - sent AS qty, note FROM order_items WHERE table_id = ? AND qty > sent ORDER BY id', [$t['id']])->fetchAll();
             q('UPDATE order_items SET sent = qty WHERE table_id = ?', [$t['id']]);
             return $p;
+        });
+        break;
+    case 'k_done':
+        // kitchen screen: everything sent for this table (or one dish) is cooked
+        need();
+        tx(function () use ($in) {
+            $t = lock_table((int)($in['table'] ?? 0));
+            if (!empty($in['item'])) q('UPDATE order_items SET done = sent WHERE id = ? AND table_id = ?', [(int)$in['item'], $t['id']]);
+            else q('UPDATE order_items SET done = sent WHERE table_id = ?', [$t['id']]);
         });
         break;
     case 'check_bill':
@@ -486,6 +562,11 @@ try {
             global $pdo;
             $no = (int)$pdo->lastInsertId();
             foreach ($items as $i) q('INSERT INTO bill_items (bill_id, name, price, qty, note, ordered_at) VALUES (?, ?, ?, ?, ?, ?)', [$no, $i['name'], $i['price'], $i['qty'], $i['note'], $i['ordered_at']]);
+            if (!empty($in['slip']) && $method !== 'cash') {
+                [$bin, $mime] = data_url((string)$in['slip'], IMG_TYPES, 600000);
+                q('INSERT INTO bill_slips (bill_id, data, mime, created_at) VALUES (?, ?, ?, ?)', [$no, $bin, $mime, now()]);
+            }
+            q('DELETE FROM bill_slips WHERE created_at < NOW() - INTERVAL 90 DAY');
             q('DELETE FROM order_items WHERE table_id = ?', [$t['id']]);
             q('UPDATE dining_tables SET ' . CLEAR_TABLE . ' WHERE id = ?', [$t['id']]);
             return bill_out(q('SELECT b.*, u.name AS cashier FROM bills b LEFT JOIN users u ON u.id = b.cashier_id WHERE b.id = ?', [$no])->fetch());
@@ -625,6 +706,30 @@ try {
             q('UPDATE menu SET cat = ? WHERE id = ?', [str($in, 'cat', 100), $id]);
         });
         break;
+    case 'img':
+        // a dish photo: public, the guest order page shows them too
+        $img = q('SELECT data, mime FROM menu_images WHERE menu_id = ?', [(int)($_GET['id'] ?? 0)])->fetch() ?: fail('ไม่พบรูป', 404);
+        header('Content-Type: ' . $img['mime']);
+        header('Cache-Control: private, max-age=31536000, immutable');
+        echo $img['data'];
+        exit;
+    case 'menu_img':
+        // set (data = data: URL) or remove (data empty) a dish photo
+        need('menu');
+        $id = (int)($in['id'] ?? 0);
+        $raw = (string)($in['data'] ?? '');
+        if ($raw === '') { tx(fn() => q('DELETE FROM menu_images WHERE menu_id = ?', [$id])); break; }
+        if (!preg_match('#^data:image/(jpeg|png|webp);base64,#', $raw, $m)) fail('ไฟล์รูปไม่ถูกต้อง');
+        $bin = base64_decode(substr($raw, strlen($m[0])), true);
+        if ($bin === false || strlen($bin) > 600000) fail('รูปใหญ่เกินไป');
+        $info = @getimagesizefromstring($bin);
+        if (!$info || !in_array($info['mime'], ['image/jpeg', 'image/png', 'image/webp'], true)) fail('ไฟล์รูปไม่ถูกต้อง');
+        tx(function () use ($id, $bin, $info) {
+            q('SELECT id FROM menu WHERE id = ? AND active = 1', [$id])->fetch() ?: fail('ไม่พบเมนู');
+            q('INSERT INTO menu_images (menu_id, data, mime, ver) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), mime = VALUES(mime), ver = VALUES(ver)',
+                [$id, $bin, $info['mime'], time()]);
+        });
+        break;
     case 'menu_del':
         need('menu');
         tx(function () use ($in) {
@@ -640,17 +745,93 @@ try {
             foreach (['service', 'vat'] as $k) {
                 if (!is_numeric($in[$k] ?? 0) || $in[$k] < 0 || $in[$k] > 100) fail('Service / VAT ต้องอยู่ระหว่าง 0–100%');
             }
-            foreach (['name', 'addr', 'phone', 'service', 'vat', 'promptpay', 'footer'] as $k) {
-                q('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, str($in, $k, 500)]);
+            foreach (['name', 'addr', 'phone', 'service', 'vat', 'promptpay', 'footer', 'bank_name', 'bank_acct', 'bank_owner', 'qr_pin', 'sound'] as $k) {
+                if (array_key_exists($k, $in)) q('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, str($in, $k, 500)]);
             }
         });
         break;
+    case 'qr_regen':
+        // a lost or copied sticker: the table gets a new QR and the old one stops working
+        need('settings');
+        tx(fn() => q('UPDATE dining_tables SET qr_token = ? WHERE id = ?', [bin2hex(random_bytes(8)), (int)($in['table'] ?? 0)]));
+        break;
+    case 'file':
+        need();
+        $f = q('SELECT data, mime FROM files WHERE k = ?', [str($_GET, 'k', 40)])->fetch() ?: fail('ไม่พบไฟล์', 404);
+        header('Content-Type: ' . $f['mime']);
+        header('Cache-Control: private, max-age=31536000, immutable');
+        echo $f['data'];
+        exit;
+    case 'file_save':
+        // the shop's own payment QR picture, or a kitchen alert sound (a new one each time)
+        need('settings');
+        $kind = $in['kind'] ?? '';
+        if ($kind === 'shop_qr') { [$bin, $mime] = data_url((string)($in['data'] ?? ''), IMG_TYPES, 600000); $k = 'shop_qr'; }
+        elseif ($kind === 'sound') {
+            [$bin, $mime] = data_url((string)($in['data'] ?? ''), SOUND_TYPES, 500000);
+            if ((int)q("SELECT COUNT(*) FROM files WHERE k LIKE 'snd\_%'")->fetchColumn() >= 20) fail('เสียงเต็มแล้ว (20 เสียง) — ลบเสียงเก่าก่อน');
+            $k = 'snd_' . bin2hex(random_bytes(4));
+        } else fail('ชนิดไฟล์ไม่ถูกต้อง');
+        $name = str($in, 'name', 100);
+        tx(fn() => q('INSERT INTO files (k, name, data, mime, ver) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), data = VALUES(data), mime = VALUES(mime), ver = VALUES(ver)',
+            [$k, $name, $bin, $mime, time()]));
+        $extra['key'] = $k;
+        break;
+    case 'file_del':
+        need('settings');
+        tx(fn() => q('DELETE FROM files WHERE k = ?', [str($in, 'k', 40)]));
+        break;
+    case 'slip':
+        need('report');
+        $f = q('SELECT data, mime FROM bill_slips WHERE bill_id = ?', [(int)($_GET['no'] ?? 0)])->fetch() ?: fail('ไม่พบสลิป', 404);
+        header('Content-Type: ' . $f['mime']);
+        echo $f['data'];
+        exit;
+
+    /* ---------- guests ordering from the table QR (no login) ---------- */
+    case 'g_menu':
+        $t = guest_table();
+        $open = $t['status'] === 'busy';
+        $menu = [];
+        foreach (q('SELECT m.id, m.name, m.price, m.cat, m.out_of_stock, i.ver FROM menu m LEFT JOIN menu_images i ON i.menu_id = m.id WHERE m.active = 1 AND m.pending = 0 ORDER BY m.id') as $m) {
+            $menu[] = ['id' => (int)$m['id'], 'name' => $m['name'], 'price' => (float)$m['price'], 'cat' => $m['cat'], 'out' => (bool)$m['out_of_stock'],
+                'image' => $m['ver'] === null ? null : "api.php?a=img&id={$m['id']}&v={$m['ver']}"];
+        }
+        $s = settings();
+        out(['shop' => $s['name'] ?? '', 'table' => $t['name'], 'open' => $open, 'pinNeeded' => ($s['qr_pin'] ?? '') === '1', 'menu' => $menu,
+            'order' => $open ? array_map(fn($i) => ['name' => $i['name'], 'qty' => (int)$i['qty'], 'note' => $i['note']],
+                q('SELECT name, qty, note FROM order_items WHERE table_id = ? ORDER BY id', [$t['id']])->fetchAll()) : []]);
+    case 'g_order':
+        // straight to the kitchen; only while staff have the table open, at most one try every few seconds per table
+        $t = guest_table();
+        $lines = is_array($in['items'] ?? null) ? $in['items'] : [];
+        if (!$lines || count($lines) > 30) fail('เลือกเมนูก่อน');
+        if ($t['status'] !== 'busy') fail('โต๊ะยังไม่เปิด — เรียกพนักงานเพื่อเปิดโต๊ะ');
+        // one try per 8 s per table, wrong PINs included (10,000 PINs would take most of a day); the UPDATE is the lock
+        if (!q('UPDATE dining_tables SET guest_last = NOW() WHERE id = ? AND (guest_last IS NULL OR guest_last < NOW() - INTERVAL 8 SECOND)', [$t['id']])->rowCount()) {
+            fail('ส่งถี่เกินไป รอสักครู่แล้วลองใหม่', 429);
+        }
+        if ((settings()['qr_pin'] ?? '') === '1' && str($in, 'pin', 4) !== (string)$t['pin']) fail('รหัสโต๊ะไม่ถูกต้อง — ถามรหัส 4 หลักจากพนักงาน', 403);
+        tx(function () use ($t, $lines) {
+            $t = lock_table((int)$t['id']);
+            if ($t['status'] !== 'busy') fail('โต๊ะยังไม่เปิด — เรียกพนักงานเพื่อเปิดโต๊ะ');
+            foreach ($lines as $l) {
+                if (!is_array($l)) fail('รายการไม่ถูกต้อง');
+                $qty = (int)($l['qty'] ?? 0);
+                if ($qty < 1 || $qty > 20) fail('จำนวนต้องอยู่ระหว่าง 1–20');
+                $m = q('SELECT * FROM menu WHERE id = ? AND active = 1 AND pending = 0', [(int)($l['menu'] ?? 0)])->fetch() ?: fail('ไม่พบเมนู (อาจถูกลบ) — รีเฟรชหน้า');
+                if ($m['out_of_stock']) fail("{$m['name']} หมดแล้ว");
+                q('INSERT INTO order_items (table_id, menu_id, name, price, qty, sent, note, ordered_at, by_guest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+                    [$t['id'], $m['id'], $m['name'], $m['price'], $qty, $qty, str($l, 'note', 200), now()]);
+            }
+        });
+        out(['ok' => true]);
     case 'table_add':
         need('settings');
         tx(function () use ($in) {
             $name = str($in, 'name', 50);
             if ($name === '') fail('ใส่ชื่อโต๊ะ');
-            q('INSERT INTO dining_tables (name, sort) SELECT ?, COALESCE(MAX(sort), 0) + 1 FROM dining_tables', [$name]);
+            q('INSERT INTO dining_tables (name, sort, qr_token) SELECT ?, COALESCE(MAX(sort), 0) + 1, ? FROM dining_tables', [$name, bin2hex(random_bytes(8))]);
         });
         break;
     case 'table_del':

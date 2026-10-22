@@ -46,7 +46,7 @@ function toast(msg) {
 
 function apply(d, fromPoll) {
   ver = d.ver; ME = d.me;
-  S = { settings: d.settings, menu: d.menu, tables: d.tables, permList: d.permList || {} };
+  S = { settings: d.settings, menu: d.menu, tables: d.tables, permList: d.permList || {}, files: d.files || [] };
   render();
   // a sale or expense on another device changes the dashboard numbers
   if (fromPoll && can('report') && !$('tab-dash').classList.contains('hidden')) loadDash();
