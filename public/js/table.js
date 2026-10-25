@@ -28,6 +28,7 @@ function closeModal() {
 $('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) closeModal(); });
 
+let orderSeen = null; // IntersectionObserver for the order card (phone floating bars)
 function renderModal() {
   const t = S.tables.find(x => x.id === cur);
   if (!t) return closeModal();
@@ -182,16 +183,22 @@ function renderModal() {
       </section>
 
       <div class="paybar">
-        <button class="btn ok lg" id="pay" ${billable && (payMethod !== 'mixed' || mixQr) ? '' : 'disabled'}>${icon('printer')}<span>ชำระเงิน + พิมพ์บิล · ฿${baht(c.total)}</span></button>
-        <button class="btn ghost lg" id="payNoPrint" ${billable && (payMethod !== 'mixed' || mixQr) ? '' : 'disabled'}>${icon('check')}<span>ชำระ + ปิดโต๊ะ (ไม่พิมพ์บิล)</span></button>
-        <button class="btn gold lg" id="preview" ${billable ? '' : 'disabled'}>${icon('printer')}<span>${t.checked ? 'เช็คบิล + พิมพ์อีกครั้ง' : 'เช็คบิล + พิมพ์'}</span></button>
+        <button class="btn ok lg" id="pay" ${billable && (payMethod !== 'mixed' || mixQr) ? '' : 'disabled'}>${icon('printer')}<span>ชำระ + พิมพ์บิล<b>฿${baht(c.total)}</b></span></button>
+        <button class="btn ghost lg" id="payNoPrint" ${billable && (payMethod !== 'mixed' || mixQr) ? '' : 'disabled'}>${icon('check')}<span>ปิดโต๊ะ<small>ไม่พิมพ์บิล</small></span></button>
+        <button class="btn gold lg" id="preview" ${billable ? '' : 'disabled'}>${icon('receipt')}<span>เช็คบิล<small>${t.checked ? 'พิมพ์อีกครั้ง' : 'พิมพ์ให้ลูกค้า'}</small></span></button>
       </div>
     </div></div>
-    <button class="jump" id="jump" type="button">${icon('cart')}<span class="jl">ดูรายการ / ชำระเงิน (${itemsN})</span><b>฿${baht(c.total)}</b><span class="jgo">${icon('next')}</span></button>`;
+    <button class="jump" id="jump" type="button" aria-label="ดูรายการ / ชำระเงิน">${icon('cart')}<span class="jn">${itemsN}</span><b>฿${baht(c.total)}</b></button>`;
   $('jump').onclick = () => $('orderCard').scrollIntoView({ behavior: 'smooth' });
   // phone: hide the floating "view order" bar once the order card (with its own floating pay bar) is on screen
+  // one observer at a time: the sheet re-renders on every tap and sync, and an old one watching the removed card would hide the pay bar
+  if (orderSeen) orderSeen.disconnect();
   if ('IntersectionObserver' in window) {
-    new IntersectionObserver(([e]) => $('jump') && $('jump').classList.toggle('off', e.isIntersecting), { threshold: 0 }).observe($('orderCard'));
+    orderSeen = new IntersectionObserver(([e]) => {
+      if ($('jump')) $('jump').classList.toggle('off', e.isIntersecting);
+      if ($('pay')) $('pay').closest('.paybar').classList.toggle('show', e.isIntersecting);
+    }, { threshold: 0 });
+    orderSeen.observe($('orderCard'));
   }
 
   b.querySelectorAll('[data-cat]').forEach(x => x.onclick = () => { curCat = x.dataset.cat; renderModal(); });

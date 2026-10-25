@@ -53,11 +53,17 @@ $('kAlert').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') ack(); };
 const muteLabel = () => { $('kMute').textContent = muted ? '🔕 เสียงปิด' : '🔔 เสียงเปิด'; };
 $('kMute').onclick = () => { muted = !muted; try { localStorage.setItem('kMute', muted ? '1' : '0'); } catch {} muteLabel(); if (!muted) playSound(K && K.settings.sound, K && K.files); };
 muteLabel();
+$('kUpd').onclick = () => location.reload();
 $('kGo').onclick = () => { $('kStart').classList.add('hidden'); playSound(K && K.settings.sound, K && K.files); };
 
+let kBuild = null;
 async function poll() {
   try {
     const v = await call('ver');
+    // new code deployed: don't reload by itself (the browser would block the alert sound until someone taps again),
+    // offer it instead so a cook reloads while standing at the screen
+    if (kBuild && v.build !== kBuild) $('kUpd').classList.remove('hidden');
+    else kBuild = v.build;
     $('kSync').textContent = '● ออนไลน์'; $('kSync').className = 'ksync ok';
     if (v.ver !== kVer) load(await call('state'));
     else { draw(); ring(false); }

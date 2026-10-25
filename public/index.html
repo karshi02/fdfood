@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/dash.css">
 <link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/settings.css">
 <link rel="stylesheet" href="css/comfort.css">
 <link rel="stylesheet" href="css/splash.css">
 <script>try { if (localStorage.getItem('eye') === '1') document.documentElement.classList.add('eye'); } catch (e) {}</script>
@@ -189,87 +190,124 @@
   </section>
 
   <section id="tab-settings" class="hidden">
-    <div class="card setcard" data-perm="users">
-      <div class="sethead"><span class="setic" data-ic="users"></span><div><h2>ผู้ใช้งาน</h2><small>ใครเข้าระบบได้ และทำอะไรได้บ้าง</small></div>
-        <button class="btn brand sm" id="uAdd" type="button">+ เพิ่มผู้ใช้</button></div>
-      <div class="ulist" id="userBody"></div>
-      <form id="userForm" class="uform hidden">
-        <h3 id="uTitle">เพิ่มผู้ใช้</h3>
-        <input type="hidden" id="uId">
-        <div class="row">
-          <div><label>ชื่อผู้ใช้ (ใช้ล็อกอิน)</label><input id="uUser" autocomplete="off" required></div>
-          <div><label>ชื่อที่แสดง</label><input id="uName" required></div>
-          <div><label id="uPassLabel">รหัสผ่าน</label><input id="uPass" type="password" autocomplete="new-password"></div>
-        </div>
-        <label style="margin-top:14px">สิทธิ์ — เลือกแบบสำเร็จรูป หรือติ๊กเองทีละข้อ</label>
-        <div class="cats" id="uPresets"></div>
-        <p class="muted" style="margin:0 0 8px">ทุกคนทำได้เสมอ: จองโต๊ะ, เปิดโต๊ะ, สั่งอาหาร, ส่งครัว, รับเงิน, ตั้งเมนูหมด</p>
-        <div class="perm-grid" id="uPerms"></div>
-        <div class="actions">
-          <button class="btn brand" type="submit">บันทึก</button>
-          <button class="btn ghost" type="button" id="uCancel">ยกเลิก</button>
-        </div>
-      </form>
+    <h1 class="stitle">ตั้งค่า</h1>
+    <nav class="stabs" id="sTabs" aria-label="หมวดตั้งค่า">
+      <button type="button" data-stab="shop" data-perm="settings">ร้าน</button>
+      <button type="button" data-stab="pay" data-perm="settings">ชำระเงิน</button>
+      <button type="button" data-stab="qr" data-perm="settings">QR/ครัว</button>
+      <button type="button" data-stab="tables" data-perm="settings">โต๊ะ</button>
+      <button type="button" data-stab="users" data-perm="users">ผู้ใช้</button>
+    </nav>
+
+    <!-- ร้าน -->
+    <div class="card scard2" data-pane="shop" data-perm="settings">
+      <div class="shd"><b>ตั้งร้านให้พร้อม</b><span class="muted" id="ckCount"></span></div>
+      <div class="ckbar"><span id="ckBar"></span></div>
+      <div class="ckchips" id="ckChips"></div>
     </div>
-    <div class="card setcard" data-perm="settings">
-      <div class="sethead"><span class="setic" data-ic="receipt"></span><div><h2>ข้อมูลร้าน</h2><small>แสดงบนบิลและ QR พร้อมเพย์</small></div></div>
-      <div class="row">
-        <div><label>ชื่อร้าน</label><input id="sName"></div>
-        <div><label>ที่อยู่</label><input id="sAddr"></div>
-        <div><label>เบอร์โทร</label><input id="sPhone"></div>
+    <div class="card scard2" data-pane="shop" data-perm="settings">
+      <div class="shd2"><b>ข้อมูลร้าน</b><small>พิมพ์อยู่หัวบิลทุกใบ</small></div>
+      <div class="sfield"><label for="sName">ชื่อร้าน</label><input id="sName" data-dirty></div>
+      <div class="sfield"><label for="sAddr">ที่อยู่</label><input id="sAddr" data-dirty></div>
+      <div class="sfield"><label for="sPhone">เบอร์โทร</label><input id="sPhone" inputmode="tel" data-dirty></div>
+      <div class="sgrid2">
+        <div class="sfield"><label for="sVat">VAT (%)</label><input id="sVat" type="number" min="0" max="100" step="0.1" data-dirty></div>
+        <div class="sfield"><label for="sService">ค่าบริการ (%)</label><input id="sService" type="number" min="0" max="100" step="0.1" data-dirty></div>
       </div>
-      <div class="row" style="margin-top:8px">
-        <div><label>Service charge (%)</label><input id="sService" type="number" min="0" step="0.1"></div>
-        <div><label>VAT (%)</label><input id="sVat" type="number" min="0" step="0.1"></div>
-        <div><label>พร้อมเพย์ (เบอร์มือถือ / เลขบัตร ปชช.)</label><input id="sPP" inputmode="numeric" placeholder="0812345678"></div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <div><label>ข้อความท้ายบิล</label><input id="sFooter"></div>
-      </div>
-      <div class="actions"><button class="btn brand" id="sSave">บันทึก</button></div>
+      <div class="sfield"><label for="sFooter">ข้อความท้ายบิล</label><input id="sFooter" data-dirty></div>
     </div>
-    <div class="card setcard" data-perm="settings">
-      <div class="sethead"><span class="setic" data-ic="qr"></span><div><h2>รับชำระเงิน</h2><small>บัญชีและ QR ร้าน แสดงให้ลูกค้าตอนจ่ายแบบโอน</small></div></div>
-      <div class="row">
-        <div><label>ธนาคาร</label><input id="sBank" placeholder="เช่น กสิกรไทย"></div>
-        <div><label>เลขบัญชี</label><input id="sAcct" inputmode="numeric" placeholder="xxx-x-xxxxx-x"></div>
-        <div><label>ชื่อบัญชี</label><input id="sOwner"></div>
-      </div>
-      <div class="row">
-        <div><label>รูป QR ร้าน (จากแอปธนาคาร) <small class="muted">ใช้เมื่อไม่ได้ตั้งเบอร์พร้อมเพย์</small></label>
-          <div class="shopqr"><span id="sQrPrev" class="shopqr-prev"></span>
-            <button class="btn ghost sm" id="sQrUp" type="button">อัปโหลดรูป QR</button><button class="btn danger sm hidden" id="sQrDel" type="button">ลบรูป</button></div></div>
-      </div>
-      <div class="actions"><button class="btn brand" id="sPaySave">บันทึก</button></div>
+    <div class="card scard2" data-pane="shop" id="sPrinterCard">
+      <div class="shd2"><b>เครื่องพิมพ์บิล</b><small>ตั้งแยกทีละเครื่อง (มือถือ / แท็บเล็ตที่ใช้รับเงิน)</small></div>
+      <div class="sprn"><span class="sprn-dot" id="sPrnDot"></span><span id="sPrnText">ยังไม่ได้ต่อ · พิมพ์ผ่านเบราว์เซอร์</span></div>
+      <button class="btn soft2 lg" id="sPrnOpen" type="button">ตั้งเครื่องพิมพ์ / ทดสอบพิมพ์</button>
     </div>
-    <div class="card setcard" data-perm="settings">
-      <div class="sethead"><span class="setic" data-ic="cloche"></span><div><h2>QR สั่งอาหาร &amp; ครัว</h2><small>ลูกค้าสแกน QR ที่โต๊ะแล้วสั่งเข้าครัวเอง</small></div>
-        <a class="btn ghost sm" href="kitchen.html" target="_blank" rel="noopener">เปิดจอครัว</a></div>
-      <div class="row">
-        <label class="perm" style="flex:1 1 100%"><input type="checkbox" id="sPin"><span><b>ลูกค้าต้องใส่รหัสโต๊ะ 4 หลัก</b><br><small class="muted">รหัสเปลี่ยนทุกครั้งที่เปิดโต๊ะ (ดูได้ที่หัวหน้าโต๊ะ) — คนที่ถ่ายรูป QR ไปจะสั่งแกล้งไม่ได้</small></span></label>
+
+    <!-- ชำระเงิน -->
+    <div class="card scard2" data-pane="pay" data-perm="settings">
+      <div class="shd2"><b>ลูกค้าโอนเงินแบบไหน</b><small>เลือกอย่างเดียว ระบบจะโชว์ QR นี้ตอนรับเงิน</small></div>
+      <label class="sradio"><input type="radio" name="payMode" value="pp" data-dirty><span><b>พร้อมเพย์ (สร้าง QR ตามยอดให้อัตโนมัติ)</b><small>ลูกค้าสแกนแล้วยอดขึ้นเอง ไม่ต้องพิมพ์</small></span></label>
+      <div class="ssub" id="ppBox">
+        <div class="sfield"><label for="sPP">เบอร์มือถือ หรือเลขบัตรประชาชน ที่ผูกพร้อมเพย์</label><input id="sPP" inputmode="numeric" placeholder="0812345678" data-dirty></div>
+        <div class="pptest"><span id="ppTestQr" class="pptest-qr"></span><span><b>ลองสแกนก่อนใช้จริง</b><small id="ppTestHint">QR ฿1.00 ชื่อบัญชีที่ขึ้นต้องเป็นของร้าน</small></span></div>
       </div>
-      <div class="row">
-        <div style="flex:0 0 auto"><button class="btn brand" id="qrPrintAll" type="button">พิมพ์ QR ทุกโต๊ะ</button></div>
-        <div><select id="qrTable" aria-label="เลือกโต๊ะ"></select></div>
-        <div style="flex:0 0 auto" class="actions"><button class="btn ghost" id="qrPrintOne" type="button">พิมพ์โต๊ะนี้</button><button class="btn ghost" id="qrRegen" type="button">เปลี่ยน QR โต๊ะนี้</button></div>
+      <label class="sradio"><input type="radio" name="payMode" value="img" data-dirty><span><b>รูป QR ร้าน (จากแอปธนาคาร)</b><small>ลูกค้าต้องพิมพ์ยอดเอง</small></span></label>
+      <div class="ssub" id="imgBox">
+        <div class="shopqr"><span id="sQrPrev" class="shopqr-prev"></span>
+          <button class="btn ghost" id="sQrUp" type="button">อัปโหลดรูป QR</button><button class="btn danger hidden" id="sQrDel" type="button">ลบรูป</button></div>
+        <small class="muted">อัปโหลดแล้วบันทึกทันที</small>
       </div>
-      <div class="row">
-        <div><label>เสียงแจ้งเตือนออเดอร์ใหม่ (จอครัว)</label><select id="sSound"></select></div>
-        <div style="flex:0 0 auto" class="actions"><button class="btn ghost" id="sndTest" type="button">▶ ฟังแบบจอครัว (3 ครั้ง)</button><button class="btn ghost" id="sndUp" type="button">+ อัปโหลดเสียง</button></div>
+    </div>
+    <div class="card scard2" data-pane="pay" data-perm="settings">
+      <div class="shd2"><b>บัญชีธนาคาร</b><small>โชว์ใต้ QR ให้ลูกค้าเช็คชื่อก่อนโอน</small></div>
+      <div class="sfield"><label for="sBank">ธนาคาร</label><input id="sBank" list="bankList" placeholder="เช่น กสิกรไทย" data-dirty></div>
+      <div class="sfield"><label for="sAcct">เลขบัญชี</label><input id="sAcct" inputmode="numeric" placeholder="xxx-x-xxxxx-x" data-dirty></div>
+      <div class="sfield"><label for="sOwner">ชื่อบัญชี</label><input id="sOwner" data-dirty></div>
+    </div>
+
+    <!-- QR / ครัว -->
+    <div class="card scard2" data-pane="qr" data-perm="settings">
+      <div class="shd2"><b>ลูกค้าสแกน QR สั่งเอง</b><small>สติกเกอร์ติดโต๊ะถาวร · ทุกสวิตช์บันทึกทันที</small></div>
+      <div class="sswrow"><span><b>สั่งได้เฉพาะโต๊ะที่พนักงานเปิดให้</b><small>เปิดด้วยปุ่ม "QR ให้ลูกค้าสั่ง" ในหน้าโต๊ะ · กันคนถ่ายรูปสติกเกอร์ไปสั่งจากบ้าน</small></span>
+        <button type="button" class="sw" role="switch" aria-checked="false" id="sOpenOnly" aria-label="สั่งได้เฉพาะโต๊ะที่พนักงานเปิดให้"></button></div>
+      <div class="sswrow"><span><b>ต้องใส่ PIN 4 หลักตอนสั่ง</b><small>PIN เปลี่ยนทุกครั้งที่เปิดโต๊ะ โชว์บนหัวโต๊ะ พนักงานบอกลูกค้า</small></span>
+        <button type="button" class="sw" role="switch" aria-checked="false" id="sPin" aria-label="ต้องใส่ PIN"></button></div>
+      <button class="btn brand lg" id="qrPrintAll" type="button">พิมพ์สติกเกอร์ QR ทุกโต๊ะ</button>
+      <b class="sdanger-h">สติกเกอร์หาย / โดนถ่ายรูปไป?</b>
+      <div class="sdanger">
+        <span>เปลี่ยน QR ของโต๊ะเดียว สติกเกอร์เก่าจะใช้ไม่ได้ทันที</span>
+        <div class="sdanger-row"><select id="qrTable" aria-label="เลือกโต๊ะ"></select>
+          <button class="btn ghost" id="qrPrintOne" type="button">พิมพ์</button>
+          <button class="btn dangerline" id="qrRegen" type="button">เปลี่ยน QR</button></div>
       </div>
-      <div class="sndroom" id="sndRoom"></div>
+    </div>
+    <div class="card scard2" data-pane="qr" data-perm="settings">
+      <div class="shd2"><b>เสียงจอครัว</b><small>ดัง 3 ครั้ง ซ้ำทุก 20 วินาทีจนกว่าจะกดรับ</small></div>
+      <div class="sndcur" id="sndCur"></div>
+      <div class="sgrid2">
+        <button class="btn soft2" id="sndMore" type="button" aria-expanded="false">เลือกเสียงอื่น</button>
+        <button class="btn soft2" id="sndUp" type="button">อัปโหลดเสียงเอง</button>
+      </div>
+      <div class="sndroom hidden" id="sndRoom"></div>
       <div class="sndlist tgrid" id="sndList"></div>
+      <a class="btn dark lg" href="kitchen.html" target="_blank" rel="noopener">เปิดจอครัวบนเครื่องนี้</a>
     </div>
-    <div class="card setcard" data-perm="settings">
-      <div class="sethead"><span class="setic" data-ic="table"></span><div><h2>โต๊ะ</h2><small>เพิ่มโต๊ะ หรือกด ✕ เพื่อลบ (ลบได้เฉพาะโต๊ะว่าง)</small></div></div>
-      <div class="row">
-        <div><label>ชื่อโต๊ะใหม่</label><input id="tName" placeholder="เช่น 26, VIP1"></div>
-        <div style="flex:0 0 auto"><button class="btn" id="tAdd">เพิ่มโต๊ะ</button></div>
-      </div>
-      <div class="tgrid" id="tblBody"></div>
+
+    <!-- โต๊ะ -->
+    <div class="card scard2" data-pane="tables" data-perm="settings">
+      <div class="shd2"><b>เพิ่มโต๊ะ</b><small>ใส่ชื่อเอง หรือเพิ่มเป็นชุด เช่น 26-30</small></div>
+      <div class="saddrow"><label for="tName" class="sr">ชื่อโต๊ะใหม่</label><input id="tName" placeholder="เช่น 26, VIP 1 หรือ 26-30">
+        <button class="btn ok" id="tAdd" type="button">เพิ่ม</button></div>
+    </div>
+    <div class="card scard2" data-pane="tables" data-perm="settings">
+      <div class="shd"><b id="tCount">โต๊ะทั้งหมด</b><small class="muted">แตะดินสอเพื่อแก้ชื่อ</small></div>
+      <div class="trows" id="tblBody"></div>
+    </div>
+
+    <!-- ผู้ใช้ -->
+    <button class="saddbig" id="uAdd" type="button" data-pane="users" data-perm="users">+ เพิ่มพนักงาน</button>
+    <form id="userForm" class="card scard2 uform hidden" data-pane="users">
+      <div class="shd2"><b id="uTitle">เพิ่มพนักงาน</b><small id="uSub"></small></div>
+      <input type="hidden" id="uId">
+      <div class="sfield"><label for="uName">ชื่อที่แสดง</label><input id="uName" required></div>
+      <div class="sfield"><label for="uUser">ชื่อผู้ใช้ (ใช้ล็อกอิน)</label><input id="uUser" autocomplete="off" autocapitalize="none" required></div>
+      <div class="sfield"><label for="uPass" id="uPassLabel">รหัสผ่าน (อย่างน้อย 4 ตัว)</label><input id="uPass" type="password" autocomplete="new-password"></div>
+      <span class="slabel">ตำแหน่ง</span>
+      <div class="sseg" id="uPresets"></div>
+      <span class="slabel">ทำได้ <small class="muted">ทุกคนทำได้เสมอ: จองโต๊ะ เปิดโต๊ะ สั่งอาหาร ส่งครัว รับเงิน ตั้งเมนูหมด</small></span>
+      <div class="schecks" id="uPerms"></div>
+      <div class="sgrid2"><button class="btn ghost lg" type="button" id="uCancel">ยกเลิก</button><button class="btn ok lg" type="submit">บันทึก</button></div>
+      <button class="uclose hidden" id="uDel" type="button">ลบบัญชีนี้…</button>
+    </form>
+    <div class="ulist2" id="userBody" data-pane="users" data-perm="users"></div>
+
+    <div class="savebar hidden" id="saveBar" role="region" aria-label="ยังไม่บันทึก">
+      <span id="saveText">แก้ไว้ ยังไม่บันทึก</span>
+      <button class="btn ghost" id="saveUndo" type="button">ยกเลิก</button>
+      <button class="btn ok" id="saveGo" type="button">บันทึก</button>
     </div>
   </section>
 </main>
+<datalist id="bankList"><option>กสิกรไทย</option><option>ไทยพาณิชย์</option><option>กรุงเทพ</option><option>กรุงไทย</option><option>กรุงศรีอยุธยา</option><option>ทหารไทยธนชาต (ttb)</option><option>ออมสิน</option><option>ธ.ก.ส.</option></datalist>
 
 <datalist id="catList"></datalist>
 

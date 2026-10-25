@@ -394,7 +394,8 @@ try {
         out(['ok' => true]);
 
     case 'state': need(); out(state());
-    case 'ver': need(); out(['ver' => ver()]);
+    // build: the live release folder (releases/<git hash> on prod), so open screens notice a deploy and reload
+    case 'ver': need(); out(['ver' => ver(), 'build' => basename(realpath(__DIR__))]);
 
     /* ---------- tables (staff) ---------- */
     case 'resv_save':
@@ -745,7 +746,7 @@ try {
             foreach (['service', 'vat'] as $k) {
                 if (!is_numeric($in[$k] ?? 0) || $in[$k] < 0 || $in[$k] > 100) fail('Service / VAT ต้องอยู่ระหว่าง 0–100%');
             }
-            foreach (['name', 'addr', 'phone', 'service', 'vat', 'promptpay', 'footer', 'bank_name', 'bank_acct', 'bank_owner', 'qr_pin', 'sound'] as $k) {
+            foreach (['name', 'addr', 'phone', 'service', 'vat', 'promptpay', 'footer', 'bank_name', 'bank_acct', 'bank_owner', 'qr_pin', 'qr_open_only', 'sound'] as $k) {
                 if (array_key_exists($k, $in)) q('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, str($in, $k, 500)]);
             }
         });
@@ -811,7 +812,10 @@ try {
         if (!q('UPDATE dining_tables SET guest_last = NOW() WHERE id = ? AND (guest_last IS NULL OR guest_last < NOW() - INTERVAL 8 SECOND)', [$t['id']])->rowCount()) {
             fail('ส่งถี่เกินไป รอสักครู่แล้วลองใหม่', 429);
         }
-        if ((settings()['qr_pin'] ?? '') === '1' && str($in, 'pin', 4) !== (string)$t['pin']) fail('รหัสโต๊ะไม่ถูกต้อง — ถามรหัส 4 หลักจากพนักงาน', 403);
+        // a table staff opened without the QR button: guests can't order there (stops orders from a photo of the sticker)
+        if ((settings()['qr_open_only'] ?? '') === '1' && !$t['guest_open']) fail('โต๊ะนี้ยังไม่เปิดให้สั่งเอง — เรียกพนักงาน', 403);
+        // a table without a PIN (reopened bill, old open action) must not accept an empty one
+        if ((settings()['qr_pin'] ?? '') === '1' && ((string)$t['pin'] === '' || str($in, 'pin', 4) !== (string)$t['pin'])) fail('รหัสโต๊ะไม่ถูกต้อง — ถามรหัส 4 หลักจากพนักงาน', 403);
         tx(function () use ($t, $lines) {
             $t = lock_table((int)$t['id']);
             if ($t['status'] !== 'busy') fail('โต๊ะยังไม่เปิด — เรียกพนักงานเพื่อเปิดโต๊ะ');
@@ -832,6 +836,15 @@ try {
             $name = str($in, 'name', 50);
             if ($name === '') fail('ใส่ชื่อโต๊ะ');
             q('INSERT INTO dining_tables (name, sort, qr_token) SELECT ?, COALESCE(MAX(sort), 0) + 1, ? FROM dining_tables', [$name, bin2hex(random_bytes(8))]);
+        });
+        break;
+    case 'table_rename':
+        need('settings');
+        tx(function () use ($in) {
+            $name = str($in, 'name', 50);
+            if ($name === '') fail('ใส่ชื่อโต๊ะ');
+            $t = lock_table((int)($in['id'] ?? 0));
+            q('UPDATE dining_tables SET name = ? WHERE id = ?', [$name, $t['id']]);
         });
         break;
     case 'table_del':

@@ -1,14 +1,108 @@
-/* ---------- settings (admin) ---------- */
+/* ---------- settings (admin): five sub-tabs, typed fields save together from one bar, switches save at once ---------- */
+const STABS = ['shop', 'pay', 'qr', 'tables', 'users'];
+let sTab = null;
+try { sTab = localStorage.getItem('stab'); } catch {}
+function showSTab(k) {
+  const ok = STABS.filter(x => !$('sTabs').querySelector(`[data-stab="${x}"]`).classList.contains('hidden'));
+  if (!ok.includes(k)) k = ok[0];
+  sTab = k;
+  try { localStorage.setItem('stab', k); } catch {}
+  $('sTabs').querySelectorAll('[data-stab]').forEach(b => { b.classList.toggle('on', b.dataset.stab === k); b.setAttribute('aria-pressed', b.dataset.stab === k); });
+  $('tab-settings').querySelectorAll('[data-pane]').forEach(el => el.classList.toggle('poff', el.dataset.pane !== k));
+}
+$('sTabs').querySelectorAll('[data-stab]').forEach(b => b.onclick = () => showSTab(b.dataset.stab));
+
+// the typed fields of ร้าน + ชำระเงิน: what the server has, so the bar knows what changed and ยกเลิก can put it back
+const FIELDS = { sName: 'name', sAddr: 'addr', sPhone: 'phone', sService: 'service', sVat: 'vat', sFooter: 'footer', sPP: 'promptpay', sBank: 'bank_name', sAcct: 'bank_acct', sOwner: 'bank_owner' };
+let saved = null;
+const shopQr = () => (S.files || []).find(f => f.k === 'shop_qr');
+const payMode = () => (document.querySelector('input[name=payMode]:checked') || {}).value || 'pp';
+function fieldsFromServer() {
+  const s = S.settings, v = {};
+  for (const [id, k] of Object.entries(FIELDS)) v[id] = String(s[k] ?? '');
+  v.payMode = s.promptpay || !shopQr() ? 'pp' : 'img';
+  return v;
+}
+function fillFields(v) {
+  for (const id of Object.keys(FIELDS)) $(id).value = v[id];
+  document.querySelectorAll('input[name=payMode]').forEach(r => r.checked = r.value === v.payMode);
+}
+function dirtyList() {
+  if (!saved) return [];
+  const d = Object.keys(FIELDS).filter(id => $(id).value !== saved[id]);
+  if (payMode() !== saved.payMode) d.push('payMode');
+  return d;
+}
+function refreshDirty() {
+  const d = dirtyList();
+  Object.keys(FIELDS).forEach(id => $(id).classList.toggle('dirty', d.includes(id)));
+  $('saveBar').classList.toggle('hidden', !d.length);
+  $('saveText').textContent = `แก้ ${d.length} ช่อง ยังไม่บันทึก`;
+  $('ppBox').classList.toggle('hidden', payMode() !== 'pp');
+  $('imgBox').classList.toggle('hidden', payMode() !== 'img');
+  drawPpTest();
+}
+$('tab-settings').querySelectorAll('[data-dirty]').forEach(el => el.addEventListener('input', refreshDirty));
+$('saveUndo').onclick = () => { fillFields(saved); refreshDirty(); };
+$('saveGo').onclick = async () => {
+  const pp = $('sPP').value.trim(), mode = payMode();
+  if (mode === 'pp' && pp && !promptpayPayload(pp)) { showSTab('pay'); $('sPP').focus(); return alert('พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขบัตร 13 หลัก'); }
+  if (mode === 'img' && !shopQr()) { showSTab('pay'); return alert('อัปโหลดรูป QR ร้านก่อน หรือเลือกพร้อมเพย์'); }
+  const body = {};
+  for (const [id, k] of Object.entries(FIELDS)) body[k] = $(id).value.trim();
+  body.service = String(Number(body.service) || 0); body.vat = String(Number(body.vat) || 0);
+  if (mode === 'img') body.promptpay = ''; // the shop QR picture is used when there is no PromptPay number
+  saved = null; // take the server's values back after the save
+  if (await act('settings_save', body)) toast('บันทึกแล้ว');
+  renderSettings();
+};
+
+// a ฿1 PromptPay QR to scan with your own banking app before customers do
+let ppDrawn = null;
+function drawPpTest() {
+  const pp = $('sPP').value.trim(), load = pp && promptpayPayload(pp, 1);
+  if (load === ppDrawn) return;
+  ppDrawn = load;
+  if (!load) { $('ppTestQr').textContent = pp ? 'เลขไม่ถูกต้อง' : 'ใส่เลขก่อน'; return; }
+  const q = qrcode(0, 'M'); q.addData(load); q.make();
+  $('ppTestQr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+}
+
+// setup checklist: what a new shop still has to do; a chip jumps to where it is done
+function renderChecklist() {
+  const items = [
+    ['ชื่อร้าน', !!S.settings.name, 'shop'],
+    ['โต๊ะ', S.tables.length > 0, 'tables'],
+    ['เมนู', S.menu.length > 0, null],
+    ['พร้อมเพย์ / QR ร้าน', !!S.settings.promptpay || !!shopQr(), 'pay'],
+    ['เครื่องพิมพ์', typeof BT !== 'undefined' && BT.active(), 'printer'],
+  ];
+  const n = items.filter(x => x[1]).length;
+  $('ckCount').textContent = `${n} จาก ${items.length}`;
+  $('ckBar').style.width = (n / items.length * 100) + '%';
+  $('ckChips').innerHTML = items.map(([label, done, go]) => done ? `<span class="done">✓ ${label}</span>`
+    : go ? `<button type="button" data-go="${go}">ตั้ง${label} ›</button>` : `<span class="done" style="background:#fdecd3;color:#8a3b00">ยังไม่มี${label}</span>`).join('');
+  $('ckChips').querySelectorAll('[data-go]').forEach(b => b.onclick = () => b.dataset.go === 'printer' ? $('printerBtn').click() : showSTab(b.dataset.go));
+}
+if (typeof BT !== 'undefined') BT.onChange(st => {
+  const on = BT.active();
+  $('sPrnDot').classList.toggle('ready', on);
+  $('sPrnText').textContent = on ? (st.via === 'rawbt' ? 'ต่อผ่านแอป RawBT' : `ต่อแล้ว: ${st.name}`) + ` · กระดาษ ${st.paper} มม.` : 'ยังไม่ได้ต่อ · พิมพ์ผ่านเบราว์เซอร์';
+  if (S.settings && S.tables) renderChecklist();
+});
+$('sPrnOpen').onclick = () => $('printerBtn').click();
+
 function renderSettings() {
   const s = S.settings;
-  // don't overwrite a form the admin is editing when another device saves
-  if (!$('tab-settings').contains(document.activeElement)) {
-    $('sName').value = s.name; $('sAddr').value = s.addr; $('sPhone').value = s.phone;
-    $('sService').value = s.service; $('sVat').value = s.vat; $('sPP').value = s.promptpay; $('sFooter').value = s.footer;
-    $('sBank').value = s.bank_name || ''; $('sAcct').value = s.bank_acct || ''; $('sOwner').value = s.bank_owner || '';
-  }
-  $('sPin').checked = s.qr_pin === '1';
-  const qr = (S.files || []).find(f => f.k === 'shop_qr');
+  if (!sTab || $('sTabs').querySelector('.on') === null) showSTab(sTab);
+  // keep what the admin is typing; a save from another device shows once nothing here is changed
+  if (!saved || !dirtyList().length) { saved = fieldsFromServer(); fillFields(saved); }
+  refreshDirty();
+  renderChecklist();
+
+  const sw = (el, on) => el.setAttribute('aria-checked', on ? 'true' : 'false');
+  sw($('sPin'), s.qr_pin === '1'); sw($('sOpenOnly'), s.qr_open_only === '1');
+  const qr = shopQr();
   $('sQrPrev').innerHTML = qr ? `<img src="${esc(qr.url)}" alt="QR ร้าน">` : '<small class="muted">ยังไม่มีรูป</small>';
   $('sQrDel').classList.toggle('hidden', !qr);
   if (document.activeElement !== $('qrTable')) {
@@ -16,14 +110,15 @@ function renderSettings() {
     $('qrTable').innerHTML = S.tables.map(t => `<option value="${t.id}">โต๊ะ ${esc(t.name)}</option>`).join('');
     if (keep) $('qrTable').value = keep;
   }
-  if (document.activeElement !== $('sSound')) {
-    $('sSound').innerHTML = soundOptions(S.files).map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
-    $('sSound').value = s.sound || 'b:ding';
-  }
-  // listening room: play any sound, pick one; the current one is marked
-  $('sndRoom').innerHTML = soundOptions(S.files).map(([v, label]) => `<div class="sndcard${v === (s.sound || 'b:ding') ? ' on' : ''}">
+
+  // kitchen sound: the one in use up front, every other one in the listening room behind "เลือกเสียงอื่น"
+  const cur = s.sound || 'b:ding', opts = soundOptions(S.files), curLabel = (opts.find(o => o[0] === cur) || opts[0])[1];
+  $('sndCur').innerHTML = `<button type="button" class="sndplay2" id="sndTest" aria-label="ฟังแบบจอครัว (3 ครั้ง)">▶</button><span><b>${esc(curLabel)}</b><small>ใช้อยู่ · กด ▶ ฟังแบบจอครัว</small></span>`;
+  $('sndTest').onclick = () => playAlert(cur, S.files);
+  $('sndMore').textContent = $('sndRoom').classList.contains('hidden') ? `เลือกเสียงอื่น (${opts.length})` : 'ซ่อนรายการเสียง';
+  $('sndRoom').innerHTML = opts.map(([v, label]) => `<div class="sndcard${v === cur ? ' on' : ''}">
       <button type="button" class="sndplay" data-play="${esc(v)}" aria-label="ฟัง ${esc(label)}">▶</button><span>${esc(label)}</span>
-      ${v === (s.sound || 'b:ding') ? '<b class="sndnow">ใช้อยู่</b>' : `<button type="button" class="btn ghost sm" data-use="${esc(v)}">ใช้เสียงนี้</button>`}</div>`).join('');
+      ${v === cur ? '<b class="sndnow">ใช้อยู่</b>' : `<button type="button" class="btn ghost sm" data-use="${esc(v)}">ใช้เสียงนี้</button>`}</div>`).join('');
   $('sndRoom').querySelectorAll('[data-play]').forEach(b => b.onclick = () => playSound(b.dataset.play, S.files));
   $('sndRoom').querySelectorAll('[data-use]').forEach(b => b.onclick = async () => {
     playSound(b.dataset.use, S.files);
@@ -37,44 +132,88 @@ function renderSettings() {
       toast('ลบเสียงแล้ว');
     }
   });
-  $('tblBody').innerHTML = S.tables.map(t => `<span class="tchip ${t.status}">โต๊ะ ${esc(t.name)}
-    <button type="button" data-tdel="${t.id}" aria-label="ลบโต๊ะ ${esc(t.name)}" ${t.status !== 'free' ? 'disabled title="โต๊ะไม่ว่าง"' : ''}>${icon('close')}</button></span>`).join('');
-  $('tblBody').querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { if (confirm('ลบโต๊ะนี้?')) act('table_del', { id: Number(b.dataset.tdel) }).then(d => d && toast('ลบโต๊ะแล้ว')); });
-}
-$('sSave').onclick = async () => {
-  const pp = $('sPP').value.trim();
-  if (pp && !promptpayPayload(pp)) return alert('พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขบัตร 13 หลัก');
-  if (await act('settings_save', { name: $('sName').value, addr: $('sAddr').value, phone: $('sPhone').value,
-    service: String(Number($('sService').value) || 0), vat: String(Number($('sVat').value) || 0), promptpay: pp, footer: $('sFooter').value })) toast('บันทึกข้อมูลร้านแล้ว');
-};
-$('tAdd').onclick = async () => {
-  const name = $('tName').value.trim(); if (!name) return;
-  if (await act('table_add', { name })) { $('tName').value = ''; toast(`เพิ่มโต๊ะ ${name} แล้ว`); }
-};
 
+  renderTableRows();
+}
+$('sndMore').onclick = () => {
+  const open = $('sndRoom').classList.toggle('hidden') === false;
+  $('sndMore').setAttribute('aria-expanded', open);
+  renderSettings();
+};
+// switches: flip, save, and flip back if the save failed
+async function flipSwitch(el, key, onMsg, offMsg) {
+  const on = el.getAttribute('aria-checked') !== 'true';
+  el.setAttribute('aria-checked', on); el.disabled = true;
+  const d = await act('settings_save', { [key]: on ? '1' : '0' });
+  el.disabled = false;
+  if (d) toast(on ? onMsg : offMsg); else el.setAttribute('aria-checked', !on);
+}
+$('sPin').onclick = () => flipSwitch($('sPin'), 'qr_pin', 'ลูกค้าต้องใส่ PIN แล้ว', 'ปิดการใส่ PIN แล้ว');
+$('sOpenOnly').onclick = () => flipSwitch($('sOpenOnly'), 'qr_open_only', 'สั่งเองได้เฉพาะโต๊ะที่เปิด QR ให้', 'ทุกโต๊ะที่มีลูกค้าสั่งเองได้');
+
+/* ---------- tables: add one or a run (26-30), rename in place, delete free ones ---------- */
+let tEdit = null;
+const T_STATUS = { free: 'ว่าง', busy: 'มีลูกค้า', resv: 'จองไว้' };
+function renderTableRows() {
+  if (tEdit && $('tblBody').contains(document.activeElement)) return; // typing a new name
+  $('tCount').textContent = `โต๊ะทั้งหมด ${S.tables.length}`;
+  $('tblBody').innerHTML = S.tables.map(t => tEdit === t.id
+    ? `<div class="trow"><label class="sr" for="tRen">ชื่อโต๊ะ ${esc(t.name)}</label><input id="tRen" value="${esc(t.name)}"><button class="btn ok" type="button" id="tRenOk">ตกลง</button><button class="btn ghost" type="button" id="tRenNo">ยกเลิก</button></div>`
+    : `<div class="trow"><b>โต๊ะ ${esc(t.name)}</b><span class="tpill ${t.status}">${T_STATUS[t.status] || t.status}</span>
+      <button type="button" class="ticon" data-tren="${t.id}" aria-label="แก้ชื่อ โต๊ะ ${esc(t.name)}">${icon('edit')}</button>
+      ${t.status === 'free' ? `<button type="button" class="ticon del" data-tdel="${t.id}" aria-label="ลบ โต๊ะ ${esc(t.name)}">${icon('trash')}</button>` : '<span class="tnodel">ลบไม่ได้ ตอนมีคน</span>'}</div>`).join('');
+  $('tblBody').querySelectorAll('[data-tren]').forEach(b => b.onclick = () => { tEdit = Number(b.dataset.tren); renderTableRows(); $('tRen').focus(); $('tRen').select(); });
+  $('tblBody').querySelectorAll('[data-tdel]').forEach(b => b.onclick = async () => {
+    const t = S.tables.find(x => x.id == b.dataset.tdel);
+    if (confirm(`ลบโต๊ะ ${t.name}?`) && await act('table_del', { id: t.id })) toast(`ลบโต๊ะ ${t.name} แล้ว`);
+  });
+  if ($('tRen')) {
+    const done = async ok => {
+      const t = S.tables.find(x => x.id === tEdit), name = $('tRen').value.trim();
+      tEdit = null;
+      if (ok && name && name !== t.name && await act('table_rename', { id: t.id, name })) toast(`เปลี่ยนชื่อเป็น โต๊ะ ${name} แล้ว`);
+      renderTableRows();
+    };
+    $('tRenOk').onclick = () => done(true);
+    $('tRenNo').onclick = () => done(false);
+    $('tRen').onkeydown = e => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+  }
+}
+$('tAdd').onclick = async () => {
+  const name = $('tName').value.trim(); if (!name) return $('tName').focus();
+  const run = name.match(/^(\d+)\s*-\s*(\d+)$/);
+  const names = run && +run[2] >= +run[1] && +run[2] - +run[1] < 50 ? Array.from({ length: run[2] - run[1] + 1 }, (_, i) => String(+run[1] + i)) : [name];
+  if (names.length > 1 && !confirm(`เพิ่มโต๊ะ ${names[0]} ถึง ${names[names.length - 1]} (${names.length} โต๊ะ)?`)) return;
+  let n = 0;
+  for (const x of names) { if (await act('table_add', { name: x })) n++; else break; }
+  if (n) { $('tName').value = ''; toast(n > 1 ? `เพิ่ม ${n} โต๊ะแล้ว` : `เพิ่มโต๊ะ ${names[0]} แล้ว`); }
+};
+$('tName').onkeydown = e => { if (e.key === 'Enter') $('tAdd').click(); };
+
+/* ---------- users ---------- */
 let users = [], uRole = 'staff';
 // one-click starting points; the owner can still tick or untick single permissions afterwards
 const PRESETS = [
-  { key: 'owner', label: 'เจ้าของร้าน', role: 'admin', perms: null },
-  { key: 'manager', label: 'แอดมิน', role: 'staff', perms: ['menu', 'discount', 'reduce', 'report', 'void'] },
   { key: 'staff', label: 'พนักงาน', role: 'staff', perms: [] },
+  { key: 'manager', label: 'ผู้จัดการ', role: 'staff', perms: ['menu', 'discount', 'reduce', 'report', 'void'] },
+  { key: 'owner', label: 'เจ้าของร้าน', role: 'admin', perms: null },
 ];
 // non-owners may only touch accounts that hold nothing they don't (same rule as api.php user_save/user_del)
 const manageable = u => isOwner() || (u.role !== 'admin' && u.perms.every(can));
 
 function renderPermForm(role, perms) {
   uRole = role;
-  const all = Object.keys(S.permList);
-  // only the owner can make owners; anyone else can only hand out what they have
+  const all = Object.keys(S.permList), self = Number($('uId').value) === ME.id;
+  // only the owner can make owners; anyone else can only hand out what they have; nobody changes their own role here
   $('uPresets').innerHTML = PRESETS.filter(x => x.role !== 'admin' || isOwner()).map(x => {
     const on = x.role === role && (x.perms === null || (x.perms.length === perms.length && x.perms.every(p => perms.includes(p))));
-    return `<button type="button" class="chip ${on ? 'on' : ''}" data-preset="${x.key}">${x.label}</button>`;
+    return `<button type="button" class="${on ? 'on' : ''}" data-preset="${x.key}" ${self ? 'disabled title="เปลี่ยนตำแหน่งตัวเองไม่ได้"' : ''}>${x.label}</button>`;
   }).join('');
   $('uPerms').innerHTML = all.map(p => {
     const owner = role === 'admin', mine = can(p);
-    return `<label class="perm ${owner || !mine ? 'off' : ''}"><input type="checkbox" value="${p}" ${owner || perms.includes(p) ? 'checked' : ''} ${owner || !mine ? 'disabled' : ''}>
+    return `<label class="${owner || !mine || self ? 'off' : ''}"><input type="checkbox" value="${p}" ${owner || perms.includes(p) ? 'checked' : ''} ${owner || !mine || self ? 'disabled' : ''}>
       <span>${esc(S.permList[p])}</span></label>`;
-  }).join('') + (role === 'admin' ? '<p class="muted" style="grid-column:1/-1;margin:0">เจ้าของร้านได้ทุกสิทธิ์เสมอ</p>' : '');
+  }).join('') + (role === 'admin' ? '<small class="muted">เจ้าของร้านได้ทุกสิทธิ์เสมอ</small>' : '');
   $('uPresets').querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
     const x = PRESETS.find(y => y.key === b.dataset.preset);
     renderPermForm(x.role, x.perms || all);
@@ -84,68 +223,70 @@ function renderPermForm(role, perms) {
 const checkedPerms = () => [...$('uPerms').querySelectorAll('input:checked')].map(c => c.value);
 
 // online = a request in the last 120 s (screens poll every 3 s, the server records it at most once a minute)
-function onlineHtml(u) {
-  const dot = c => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:4px"></span>`;
-  if (u.ago !== null && u.ago < 120) return `${dot('var(--ok)')}ออนไลน์`;
-  if (u.seen === null) return `${dot('var(--line-strong)')}ออฟไลน์`;
+function onlineText(u) {
+  if (u.ago !== null && u.ago < 120) return 'ออนไลน์อยู่';
+  if (u.seen === null) return 'ยังไม่เคยเข้า';
   const d = toDate(u.seen), today = dayKey(d) === dayKey(Date.now());
-  return `${dot('var(--line-strong)')}ล่าสุด ${today ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' '}${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
+  return `ล่าสุด ${today ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' '}${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
 }
+const roleName = u => u.role === 'admin' ? 'เจ้าของร้าน' : (PRESETS.find(x => x.role === 'staff' && x.perms.length === u.perms.length && x.perms.every(p => u.perms.includes(p))) || { label: 'พนักงาน (กำหนดเอง)' }).label;
 // keep the online dots fresh while the staff list is on screen; quiet on errors (no alert from a background poll)
 setInterval(async () => {
-  if (!ME || !can('users') || $('tab-settings').classList.contains('hidden')) return;
+  if (!ME || !can('users') || $('tab-settings').classList.contains('hidden') || sTab !== 'users') return;
   try {
     const d = await (await fetch('api.php?a=users')).json();
-    (d.users || []).forEach(u => { const el = $('userBody').querySelector(`[data-on="${u.id}"]`); if (el) el.innerHTML = onlineHtml(u); });
+    (d.users || []).forEach(u => {
+      const card = $('userBody').querySelector(`[data-on="${u.id}"]`); if (!card) return;
+      card.querySelector('.uav2').classList.toggle('on', u.ago !== null && u.ago < 120);
+      card.querySelector('.uonl').textContent = onlineText(u);
+    });
   } catch {}
 }, 30000);
 
 async function loadUsers() {
   const d = await act('users'); if (!d) return;
   users = d.users;
-  if (!$('uId').value) renderPermForm(uRole, uRole === 'admin' ? [] : checkedPerms());
-  // one card per user: who, online or last seen, role, and what they may do as chips
-  $('userBody').innerHTML = users.map(u => `<div class="ucard">
-    <span class="uav">${esc((u.name || u.username).replace(/^[เแโใไ]/, '').slice(0, 1))}</span>
-    <div class="uinfo"><b>${esc(u.name)}</b> <span class="muted">@${esc(u.username)}</span><span class="role">${u.role === 'admin' ? 'เจ้าของร้าน' : 'พนักงาน'}</span>
-      <div class="muted uon" data-on="${u.id}">${onlineHtml(u)}</div>
-      <div class="uperms">${(u.role === 'admin' ? ['ทุกสิทธิ์'] : u.perms.map(p => S.permList[p])).map(p => `<span>${esc(p)}</span>`).join('') || '<span class="base">สิทธิ์พื้นฐาน</span>'}</div></div>
-    <div class="uact">${manageable(u) ? `<button class="btn ghost sm" data-uedit="${u.id}">แก้ไข</button>` : ''}
-    ${u.id !== ME.id && manageable(u) ? `<button class="btn danger sm" data-udel="${u.id}">ลบ</button>` : ''}</div></div>`).join('');
+  if (!$('uId').value && $('userForm').classList.contains('hidden')) renderPermForm('staff', []);
+  // one card per person: who, online or last seen, role; tap แก้ไข to open the form for them
+  $('userBody').innerHTML = users.map(u => `<div class="ucard2" data-on="${u.id}">
+    <span class="uav2${u.role === 'admin' ? ' owner' : ''}${u.ago !== null && u.ago < 120 ? ' on' : ''}">${esc((u.name || u.username).replace(/^[เแโใไ]/, '').slice(0, 1))}</span>
+    <div class="uinfo2"><b>${esc(u.name)}${u.id === ME.id ? ' (คุณ)' : ''}</b><small>${esc(u.username)} · <span class="uonl">${onlineText(u)}</span></small><small>${esc(roleName(u))}</small></div>
+    ${u.role === 'admin' ? '<span class="urole">เจ้าของ</span>' : ''}
+    ${manageable(u) ? `<button type="button" class="uedit2" data-uedit="${u.id}">แก้ไข ›</button>` : ''}</div>`).join('');
   $('userBody').querySelectorAll('[data-uedit]').forEach(b => b.onclick = () => {
     const u = users.find(x => x.id == b.dataset.uedit);
     $('uId').value = u.id; $('uUser').value = u.username; $('uName').value = u.name; $('uPass').value = '';
-    $('uPassLabel').textContent = 'รหัสผ่านใหม่ (เว้นว่าง = ไม่เปลี่ยน)';
-    $('uTitle').textContent = `แก้ไขผู้ใช้ — ${u.name}`;
+    $('uPassLabel').textContent = 'ตั้งรหัสใหม่ (เว้นว่าง = ใช้รหัสเดิม)';
+    $('uTitle').textContent = u.name; $('uSub').textContent = `${u.username} · ${onlineText(u)}`;
+    $('uDel').classList.toggle('hidden', u.id === ME.id);
     renderPermForm(u.role, u.perms);
-    $('userForm').classList.remove('hidden');
-    $('userForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  $('userBody').querySelectorAll('[data-udel]').forEach(b => b.onclick = async () => {
-    if (confirm('ลบผู้ใช้นี้?') && await act('user_del', { id: Number(b.dataset.udel) })) { loadUsers(); toast('ลบผู้ใช้แล้ว'); }
+    $('userForm').classList.remove('hidden'); $('uAdd').classList.add('hidden');
+    $('userForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 }
 function resetUserForm() {
-  $('userForm').reset(); $('uId').value = ''; $('uPassLabel').textContent = 'รหัสผ่าน'; $('uTitle').textContent = 'เพิ่มผู้ใช้';
+  $('userForm').reset(); $('uId').value = ''; $('uPassLabel').textContent = 'รหัสผ่าน (อย่างน้อย 4 ตัว)';
+  $('uTitle').textContent = 'เพิ่มพนักงาน'; $('uSub').textContent = ''; $('uDel').classList.add('hidden');
   renderPermForm('staff', []);
-  $('userForm').classList.add('hidden');
+  $('userForm').classList.add('hidden'); $('uAdd').classList.remove('hidden');
 }
-$('uAdd').onclick = () => { resetUserForm(); $('userForm').classList.remove('hidden'); $('uUser').focus(); };
+$('uAdd').onclick = () => { resetUserForm(); $('userForm').classList.remove('hidden'); $('uAdd').classList.add('hidden'); $('uName').focus(); };
 $('userForm').onsubmit = async e => {
   e.preventDefault();
   const edit = $('uId').value;
   if (await act('user_save', { id: Number(edit) || null, username: $('uUser').value, name: $('uName').value, role: uRole,
     perms: uRole === 'admin' ? [] : checkedPerms(), password: $('uPass').value })) {
-    toast(edit ? 'บันทึกสิทธิ์แล้ว' : `เพิ่มผู้ใช้ ${$('uName').value} แล้ว`);
+    toast(edit ? 'บันทึกแล้ว' : `เพิ่ม ${$('uName').value} แล้ว`);
     resetUserForm(); loadUsers();
   }
 };
 $('uCancel').onclick = resetUserForm;
-
-/* ---------- payment account + shop QR picture ---------- */
-$('sPaySave').onclick = async () => {
-  if (await act('settings_save', { bank_name: $('sBank').value, bank_acct: $('sAcct').value, bank_owner: $('sOwner').value })) toast('บันทึกบัญชีร้านแล้ว');
+$('uDel').onclick = async () => {
+  const u = users.find(x => x.id == $('uId').value);
+  if (u && confirm(`ลบบัญชี ${u.name}? เข้าระบบด้วยบัญชีนี้ไม่ได้อีก`) && await act('user_del', { id: u.id })) { resetUserForm(); loadUsers(); toast(`ลบบัญชี ${u.name} แล้ว`); }
 };
+
+/* ---------- shop QR picture ---------- */
 // a file the user picks; pictures are shrunk to at most `max` px as JPEG on a white background
 const pickFile = accept => new Promise(ok => {
   const i = Object.assign(document.createElement('input'), { type: 'file', accept });
@@ -168,8 +309,8 @@ $('sQrUp').onclick = async () => {
 };
 $('sQrDel').onclick = async () => { if (confirm('ลบรูป QR ร้าน?') && await act('file_del', { k: 'shop_qr' })) toast('ลบรูป QR แล้ว'); };
 
-/* ---------- QR ordering ---------- */
-$('sPin').onchange = async () => { if (await act('settings_save', { qr_pin: $('sPin').checked ? '1' : '0' })) toast($('sPin').checked ? 'ลูกค้าต้องใส่รหัสโต๊ะแล้ว' : 'ปิดการใส่รหัสโต๊ะแล้ว'); };
+
+/* ---------- QR stickers ---------- */
 const orderUrl = t => new URL('order.html?t=' + t.qr, location.href).href;
 // a printable sheet of table stickers in a new window: big QR, table name, short instructions
 function printQr(tables) {
@@ -192,8 +333,6 @@ $('qrRegen').onclick = async () => {
     toast(`เปลี่ยน QR โต๊ะ ${t.name} แล้ว — พิมพ์ใหม่ไปติดโต๊ะ`);
   }
 };
-$('sSound').onchange = async () => { playSound($('sSound').value, S.files); if (await act('settings_save', { sound: $('sSound').value })) toast('ตั้งเสียงแจ้งเตือนแล้ว'); };
-$('sndTest').onclick = () => playAlert($('sSound').value, S.files);
 // any audio or video file (a phone screen recording of a clip works): the browser decodes it, keeps the chosen
 // seconds, mixes to mono 16 kHz and saves a small WAV, so big files and video formats are fine
 async function clipToWav(f, from, len) {

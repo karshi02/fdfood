@@ -60,12 +60,16 @@ function setStatus(ok) {
   $('sync').textContent = ok ? '● ออนไลน์' : '● ออฟไลน์';
   $('sync').className = ok ? 'ok' : 'off';
 }
+let build = null;
 async function poll() {
   if (!ME || document.hidden) return;
   try {
     const r = await fetch('api.php?a=ver');
     if (r.status === 401) return showLogin();
     const d = await r.json(); setStatus(true);
+    // new code deployed: reload by itself (still logged in), but never in the middle of a table's order
+    if (build && d.build !== build && !cur && $('modal').classList.contains('hidden')) return location.reload();
+    build = d.build;
     if (d.ver !== ver) { const s = await (await fetch('api.php?a=state')).json(); if (s.tables) apply(s, true); }
   } catch { setStatus(false); }
 }
